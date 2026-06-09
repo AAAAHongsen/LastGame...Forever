@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Last Game...Forever</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #101414;
+        overflow: hidden;
+        font-family: "Courier New", monospace;
+      }
+
+      #game-root {
+        width: 100%;
+        height: 100%;
+        /* Center the canvas with CSS so Phaser never needs to write
+           margin-left/top on the canvas element.  This keeps
+           canvas.getBoundingClientRect() trustworthy for input bounds. */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #game-root canvas {
+        /* block prevents the inline-baseline gap below the canvas */
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

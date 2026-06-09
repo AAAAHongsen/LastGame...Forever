@@ -1,0 +1,48 @@
+/**
+ * Wave sync socket helpers.
+ * Host emits these; client receives and applies them.
+ */
+
+export const WAVE_EVENTS = Object.freeze({
+  STATE:            "waveState",
+  SPAWN:            "waveSpawn",
+  ENEMY_DAMAGE:     "waveEnemyDamage",
+  ENEMY_DEATH:      "waveEnemyDeath",
+  ENEMY_DIE_FX:     "waveEnemyDieFx",
+  ENEMY_SYNC:       "waveEnemySync",   // host → client: batched enemy transforms
+  ENEMY_FX:         "waveEnemyFx",     // host → client: attack/effect spawn visuals
+  BOSS_SUMMON:      "waveBossSummon",
+  LOOT_SPAWN:       "waveLootSpawn",
+  PLAYER_STATS:     "wavePlayerStats",
+  SYNC_HP:          "waveSyncHp",
+  TUTORIAL_READY:   "waveTutorialReady",
+  TUTORIAL_STATUS:  "waveTutorialStatus",
+});
+
+export function emitWaveState(socket, payload) {
+  socket?.emit(WAVE_EVENTS.STATE, payload);
+}
+
+export function emitWaveSpawn(socket, payload) {
+  socket?.emit(WAVE_EVENTS.SPAWN, payload);
+}
+
+export function emitEnemyDamage(socket, payload) {
+  socket?.emit(WAVE_EVENTS.ENEMY_DAMAGE, payload);
+}
+
+export function emitEnemyDeath(socket, payload) {
+  socket?.emit(WAVE_EVENTS.ENEMY_DEATH, payload);
+}
+
+export function emitBossSummon(socket, payload) {
+  socket?.emit(WAVE_EVENTS.BOSS_SUMMON, payload);
+}
+
+export function emitPlayerStats(socket, payload) {
+  socket?.emit(WAVE_EVENTS.PLAYER_STATS, payload);
+}
+
+export function emitSyncHp(socket, payload) {
+  socket?.emit(WAVE_EVENTS.SYNC_HP, payload);
+}
