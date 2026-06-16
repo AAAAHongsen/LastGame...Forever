@@ -8,10 +8,6 @@ export function igniteGroundFires(scene, impactX, ownerEnemy, landY) {
   // Use the actual landing Y (from platform collider) or fall back to ground level.
   const spawnY = Number.isFinite(landY) ? landY : GROUND_SURFACE_Y;
 
-  // Host broadcasts the landing so the client reproduces identical ground fire.
-  // (The falling fireball only exists on the host now that AI is host-gated.)
-  scene.waveManager?.emitEnemyFx?.({ kind: "groundfire", x: impactX, landY: spawnY });
-
   for (const off of GROUND_FIRE_OFFSETS) {
     const gx = impactX + off;
     if (gx < 10 || gx > BASE_WIDTH - 10) continue;

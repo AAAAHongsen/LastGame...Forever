@@ -24,7 +24,6 @@ export function triggerBatAttack(scene, enemy) {
   enemy.state = ENEMY_STATE.ATTACK;
   const proj = spawnSoundWave(scene, { fromSprite: s, target: p?.sprite, speed });
   if (proj) proj.setData("ownerEnemy", enemy);
-  scene.waveManager?.emitEnemyFx?.({ kind: "soundwave", id: enemy._waveId });
 
   playAnimationOnce(s, atkKey).then(() => {
     enemy.state = ENEMY_STATE.IDLE;
@@ -40,7 +39,6 @@ export function triggerFlyBossAttack(scene, enemy) {
   if (p?.sprite) faceTowardPlayer(s, p.sprite.x, enemy.config.facing ?? "right-art");
   const proj = spawnLightBall(scene, { fromSprite: s });
   if (proj) proj.setData("ownerEnemy", enemy);
-  scene.waveManager?.emitEnemyFx?.({ kind: "lightball", id: enemy._waveId });
   return proj;
 }
 
@@ -126,7 +124,6 @@ export function playGorgonBeam(scene, enemy) {
     enemy.stateData.beamLaserFired = true;
     s.anims.pause();
     spawnLaser(scene, { fromSprite: s, ownerEnemy: enemy });
-    scene.waveManager?.emitEnemyFx?.({ kind: "laser", id: enemy._waveId });
     scene.time.delayedCall(holdMs, () => {
       if (s.active && s.anims.isPaused) s.anims.resume();
     });

@@ -1,6 +1,7 @@
 import { leaveActiveRoom } from "./socketService.js";
 import { closeGameOverUi, resetGameRun, returnToFrontPageFromGame } from "./gameRunReset.js";
 import { GameOverModal } from "../ui/GameOverModal.js";
+import { playLoseSfx } from "./audioService.js";
 
 export function isGameOverOpen(scene) {
   return Boolean(scene?._gameOverOpen);
@@ -74,6 +75,8 @@ export function openGameOverOverlay(scene) {
 
   scene._gameOverOpen = true;
   scene._gameOverFrozen = true;
+
+  playLoseSfx(scene);
 
   scene.gameOverModal = new GameOverModal(scene, {
     onEnd: () => handleGameOverEnd(scene),

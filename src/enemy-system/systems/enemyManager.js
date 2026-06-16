@@ -8,7 +8,6 @@ import { getEnemyConfig } from "../registry/enemyRegistry.js";
 import { getEnemyBaseStats } from "../../combat-stats/config/enemyBaseStats.js";
 import { resolveEnemyMaxHp } from "../../combat-stats/resolveEnemyStats.js";
 import { clearLootPickups } from "../../combat-stats/loot/lootManager.js";
-import { isHostScene } from "../../services/netRole.js";
 
 const KIND_CREATORS = {
   ground: createGroundEnemy,
@@ -109,42 +108,10 @@ export function clearEnemies(scene) {
 }
 
 export function updateEnemies(scene, now) {
-  // Host drives AI; client mirrors host transforms (positions/anim) instead of
-  // running its own simulation, so both screens stay in sync.
-  const host = isHostScene(scene);
   for (const enemy of scene.enemyManager?.enemies ?? []) {
     if (!enemy.sprite?.active) continue;
     if (enemy.dead || enemy.dying) continue;
     if (enemy.type?.startsWith?.("fx-")) continue;
-    if (host) {
-      updateEnemyAI(scene, enemy, now);
-    } else {
-      applyNetTransform(enemy);
-    }
-  }
-}
-
-/** Client-side: ease the enemy sprite toward the host's last-synced transform. */
-function applyNetTransform(enemy) {
-  const s = enemy.sprite;
-  const t = enemy._netTarget;
-  if (!s) return;
-
-  // Keep the body kinematic so arcade physics never fights the synced position.
-  if (s.body) {
-    s.body.setAllowGravity(false);
-    s.body.velocity.set(0, 0);
-  }
-
-  if (!t) return;
-
-  const nx = Phaser.Math.Linear(s.x, t.x, 0.25);
-  const ny = Phaser.Math.Linear(s.y, t.y, 0.25);
-  if (s.body?.reset) s.body.reset(nx, ny);
-  else s.setPosition(nx, ny);
-
-  if (typeof t.fx === "boolean") s.setFlipX(t.fx);
-  if (t.an && s.anims && s.anims.currentAnim?.key !== t.an) {
-    s.anims.play(t.an, true);
+    updateEnemyAI(scene, enemy, now);
   }
 }

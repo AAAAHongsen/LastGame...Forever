@@ -11,12 +11,7 @@ import {
 } from "./waveSync.js";
 import { spawnEnergyBallBurst } from "../combat-stats/loot/energyBall.js";
 import { createBossHpBar, destroyBossHpBar } from "../enemy-system/ui/BossHpBar.js";
-import { spawnSoundWave } from "../enemy-system/effects/soundWave.js";
-import { spawnLightBall } from "../enemy-system/effects/lightBall.js";
-import { spawnLaser } from "../enemy-system/effects/laser.js";
-import { igniteGroundFires } from "../enemy-system/effects/fireball.js";
-
-const ENEMY_SYNC_INTERVAL_MS = 100;
+import { playEnemyDeadSfx } from "../services/audioService.js";
 
 const FLYING_TYPES = new Set(["bat", "flyBoss"]);
 
@@ -123,42 +118,11 @@ export class WaveManager {
     if (this.state !== "playing") return;
 
     const now = this.scene.time?.now ?? 0;
-    this._broadcastEnemyTransforms(now);
-
     if (now - this._checkCooldown < 500) return;
     this._checkCooldown = now;
 
     this._checkBossThresholds();
     this._checkWaveComplete();
-  }
-
-  /** Host: broadcast all live enemy transforms so the client mirrors them. */
-  _broadcastEnemyTransforms(now) {
-    const socket = this.scene.socket;
-    if (!socket) return;
-    if (now - (this._lastEnemySyncAt ?? 0) < ENEMY_SYNC_INTERVAL_MS) return;
-    this._lastEnemySyncAt = now;
-
-    const items = [];
-    for (const e of this.spawnedEnemies) {
-      const s = e?.sprite;
-      if (!s?.active || e.dead || e.dying || !e._waveId) continue;
-      items.push({
-        id: e._waveId,
-        x: Math.round(s.x),
-        y: Math.round(s.y),
-        fx: Boolean(s.flipX),
-        an: s.anims?.currentAnim?.key ?? null,
-      });
-    }
-    if (items.length) socket.emit(WAVE_EVENTS.ENEMY_SYNC, { items });
-  }
-
-  /** Host: broadcast an attack/effect spawn so the client shows the same visual. */
-  emitEnemyFx(payload) {
-    if (!this._host) return;
-    const socket = this.scene.socket;
-    if (socket) socket.emit(WAVE_EVENTS.ENEMY_FX, payload);
   }
 
   /** Sync an enemy damage event to client and apply. */
@@ -558,8 +522,6 @@ export class WaveManager {
     this._onSyncHp = (msg) => this._handleSyncHp(msg);
     this._onEnemyDieFx = (msg) => this._handleEnemyDieFx(msg);
     this._onLootSpawn = (msg) => this._handleLootSpawn(msg);
-    this._onEnemySync = (msg) => this._handleEnemySync(msg);
-    this._onEnemyFx = (msg) => this._handleEnemyFx(msg);
 
     socket.on(WAVE_EVENTS.STATE,        this._onWaveState);
     socket.on(WAVE_EVENTS.SPAWN,        this._onWaveSpawn);
@@ -570,8 +532,6 @@ export class WaveManager {
     socket.on(WAVE_EVENTS.SYNC_HP,      this._onSyncHp);
     socket.on(WAVE_EVENTS.ENEMY_DIE_FX, this._onEnemyDieFx);
     socket.on(WAVE_EVENTS.LOOT_SPAWN,   this._onLootSpawn);
-    socket.on(WAVE_EVENTS.ENEMY_SYNC,   this._onEnemySync);
-    socket.on(WAVE_EVENTS.ENEMY_FX,     this._onEnemyFx);
   }
 
   _unbindSocketClient() {
@@ -587,8 +547,6 @@ export class WaveManager {
     socket.off(WAVE_EVENTS.SYNC_HP,      this._onSyncHp);
     socket.off(WAVE_EVENTS.ENEMY_DIE_FX, this._onEnemyDieFx);
     socket.off(WAVE_EVENTS.LOOT_SPAWN,   this._onLootSpawn);
-    socket.off(WAVE_EVENTS.ENEMY_SYNC,   this._onEnemySync);
-    socket.off(WAVE_EVENTS.ENEMY_FX,     this._onEnemyFx);
   }
 
   _handleWaveState(msg) {
@@ -637,13 +595,6 @@ export class WaveManager {
     enemy.hpMax = msg.hpMax;
     enemy._waveDamage = msg.damage;
     enemy._waveId = msg.id;
-    enemy._netTarget = { x: msg.x, y: msg.y, fx: false, an: null };
-    // Client mirrors host transforms — make the body kinematic so it doesn't
-    // fall/drift before the first transform sync arrives.
-    if (enemy.sprite?.body) {
-      enemy.sprite.body.setAllowGravity(false);
-      enemy.sprite.body.velocity.set(0, 0);
-    }
     // Attach HP bar for bosses on client side too
     createBossHpBar(scene, enemy);
     this.spawnedEnemies.push(enemy);
@@ -661,40 +612,6 @@ export class WaveManager {
     enemy.hp = msg.hp;
   }
 
-  /** Client: store the latest host transform for each enemy (applied via lerp). */
-  _handleEnemySync(msg) {
-    const items = msg?.items;
-    if (!Array.isArray(items)) return;
-    for (const it of items) {
-      const enemy = this.spawnedEnemies.find((e) => e._waveId === it.id);
-      if (!enemy || enemy.dead || enemy.dying) continue;
-      enemy._netTarget = { x: it.x, y: it.y, fx: it.fx, an: it.an };
-    }
-  }
-
-  /** Client: reproduce an attack/effect visual the host spawned (no damage). */
-  _handleEnemyFx(msg) {
-    if (!msg) return;
-    const scene = this.scene;
-
-    if (msg.kind === "groundfire") {
-      igniteGroundFires(scene, msg.x, undefined, msg.landY);
-      return;
-    }
-
-    const enemy = this.spawnedEnemies.find((e) => e._waveId === msg.id);
-    const s = enemy?.sprite;
-    if (!s?.active) return;
-
-    if (msg.kind === "soundwave") {
-      spawnSoundWave(scene, { fromSprite: s });
-    } else if (msg.kind === "lightball") {
-      spawnLightBall(scene, { fromSprite: s });
-    } else if (msg.kind === "laser") {
-      spawnLaser(scene, { fromSprite: s });
-    }
-  }
-
   _handleEnemyDeath(msg) {
     const enemy = this.spawnedEnemies.find((e) => e._waveId === msg.id);
     if (!enemy) return;
@@ -707,6 +624,7 @@ export class WaveManager {
   _handleEnemyDieFx(msg) {
     const enemy = this.spawnedEnemies.find((e) => e._waveId === msg?.id);
     if (!enemy?.sprite?.active) return;
+    playEnemyDeadSfx(this.scene);
     enemy.dead = true;
     enemy.dying = true;
     const s = enemy.sprite;
@@ -743,7 +661,7 @@ export class WaveManager {
     const x = Number(msg.x);
     const y = Number(msg.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-    const entities = spawnEnergyBallBurst(this.scene, x, y, count, { params: msg.params });
+    const entities = spawnEnergyBallBurst(this.scene, x, y, count);
     // Tag client-side balls with the same IDs the host assigned.
     const ids = Array.isArray(msg.lootIds) ? msg.lootIds : [];
     entities.forEach((e, i) => {

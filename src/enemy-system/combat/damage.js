@@ -1,6 +1,7 @@
 import { getPlayers } from "./targeting.js";
 import { checkAndOpenGameOver } from "../../services/gameOverOverlay.js";
 import { playDamageFlash } from "../../combat-stats/damageFlash.js";
+import { playPlayerHurtSfx } from "../../services/audioService.js";
 
 export function damagePlayerEntry(scene, playerEntry, amount) {
   // Multiplayer authority: only host (player1) applies player HP changes.
@@ -31,8 +32,9 @@ export function damagePlayerEntry(scene, playerEntry, amount) {
         },
       });
     }
-  }
-  if (playerEntry.visual) {
-    playDamageFlash(scene, playerEntry.visual);
+    if (playerEntry.visual) {
+      playDamageFlash(scene, playerEntry.visual);
+    }
+    playPlayerHurtSfx(scene);
   }
 }

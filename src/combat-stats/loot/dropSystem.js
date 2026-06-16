@@ -1,12 +1,11 @@
 import { rollDropTable } from "../config/dropTables.js";
-import { spawnEnergyBallBurst, makeBurstParams } from "./energyBall.js";
+import { spawnEnergyBallBurst } from "./energyBall.js";
 
 let _lootIdSeq = 0;
 function nextLootId() { return ++_lootIdSeq; }
 
 const ITEM_SPAWNERS = Object.freeze({
-  energyball: (scene, x, y, count, params) =>
-    spawnEnergyBallBurst(scene, x, y, count, { params }),
+  energyball: (scene, x, y, count) => spawnEnergyBallBurst(scene, x, y, count),
 });
 
 /**
@@ -34,9 +33,7 @@ export function spawnDropsFromTable(scene, tableId, x, y, rng = Math.random) {
       console.warn("[combat-stats] Unknown drop item:", drop.item);
       continue;
     }
-    // Host decides the scatter once, then ships it so the client matches exactly.
-    const params = makeBurstParams(drop.count);
-    const entities = spawner(scene, x, y, drop.count, params);
+    const entities = spawner(scene, x, y, drop.count);
     // Assign unique IDs so the host can deduplicate when client confirms pickup.
     const lootIds = entities.map((e) => {
       const id = nextLootId();
@@ -52,7 +49,6 @@ export function spawnDropsFromTable(scene, tableId, x, y, rng = Math.random) {
         x,
         y,
         lootIds,
-        params,
       });
     }
   }

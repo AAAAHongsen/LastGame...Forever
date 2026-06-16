@@ -2,6 +2,7 @@ import { getEnemyFlashTarget } from "./damageFlash.js";
 import { resolveEnemyDropTableId } from "./resolveEnemyStats.js";
 import { spawnDropsFromTable } from "./loot/dropSystem.js";
 import { destroyEnemy } from "../enemy-system/helpers/spriteCleanup.js";
+import { playEnemyDeadSfx } from "../services/audioService.js";
 
 /** Death shake before despawn (does not interrupt prior hurt flash). */
 export const ENEMY_DEATH_SHAKE = Object.freeze({
@@ -53,6 +54,8 @@ export function beginEnemyDeathSequence(scene, enemy, source = {}) {
 
   enemy._deathX = visual.x;
   enemy._deathY = visual.y;
+
+  playEnemyDeadSfx(scene);
 
   // Host broadcasts a lightweight die-FX event so client won't "pop-disappear".
   if (isHost && scene?.socket && enemy._waveId) {

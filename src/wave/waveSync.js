@@ -9,8 +9,6 @@ export const WAVE_EVENTS = Object.freeze({
   ENEMY_DAMAGE:     "waveEnemyDamage",
   ENEMY_DEATH:      "waveEnemyDeath",
   ENEMY_DIE_FX:     "waveEnemyDieFx",
-  ENEMY_SYNC:       "waveEnemySync",   // host → client: batched enemy transforms
-  ENEMY_FX:         "waveEnemyFx",     // host → client: attack/effect spawn visuals
   BOSS_SUMMON:      "waveBossSummon",
   LOOT_SPAWN:       "waveLootSpawn",
   PLAYER_STATS:     "wavePlayerStats",

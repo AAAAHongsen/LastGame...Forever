@@ -9,6 +9,15 @@ import { ensureSocket } from "../services/socketService.js";
 import { installHudDevTools } from "../debug/installHudDevTools.js";
 import { openSettingsOverlay, isSettingsOpen } from "../services/settingsOverlay.js";
 import { checkAndOpenGameOver } from "../services/gameOverOverlay.js";
+import {
+  playMageAtkSfx,
+  playMageSkillSfx,
+  playWarriorAtkSfx,
+  playWarriorSkillSfx,
+  playWaveSceneSfx,
+  playWinSfx,
+  preloadAudio,
+} from "../services/audioService.js";
 import { HudUI } from "../ui/HudUI.js";
 import {
   initPlayerCombat,
@@ -50,6 +59,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload() {
+    preloadAudio(this);
     preloadCombatLootAssets(this);
 
     // Enemy assets must be available in both multiplayer and test room.
@@ -244,6 +254,7 @@ export class GameScene extends Phaser.Scene {
   showPreWaveModal(waveNum, cfg, onContinue) {
     this.waveManager?.freeze();
     this._preWaveModal?.destroy?.();
+    playWaveSceneSfx(this);
     this._preWaveModal = new PreWaveModal(this, {
       waveNum,
       cfg,
@@ -263,6 +274,7 @@ export class GameScene extends Phaser.Scene {
   showWinScreen() {
     this.waveManager?.freeze();
     this._winScreen?.destroy?.();
+    playWinSfx(this);
     this._winScreen = new WinScreen(this);
   }
 
@@ -394,6 +406,25 @@ export class GameScene extends Phaser.Scene {
     return Number(this.time?.now ?? 0) < Number(this.playersInvincibleUntil ?? 0);
   }
 
+  /** True for single/test room, or for the host (player1) in multiplayer. */
+  _isHostAuthority() {
+    const mp = Boolean(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2));
+    return !mp || this.playerNumber === 1;
+  }
+
+  /**
+   * Apply the mage heal authoritatively and push the new HP to the client.
+   * Mirrors damage.js so the heal isn't reverted by the next damage SYNC_HP.
+   */
+  _applyMageHealAndSync() {
+    const healPct = this._waveMageHealBonus > 0 ? this._waveMageHealBonus : 0.10;
+    this._healBothPercent(healPct);
+    this.waveManager?.syncPlayerHp?.();
+    this.emitPlayerResource({
+      hp: { p1: this.hud?.health?.p1, p2: this.hud?.health?.p2 },
+    });
+  }
+
   _tryConsumeEnergy(amount, forceConsume = false) {
     if (amount <= 0) return true;
     if (!forceConsume && this._isEnergyFree()) return true;
@@ -438,31 +469,6 @@ export class GameScene extends Phaser.Scene {
       const cur = Math.max(0, Math.round(Number(this.hud.health[roleKey]) || 0));
       const max = Math.max(1, Math.round(Number(this.hud.healthMax[roleKey]) || 1));
       this.hud.setHealth(roleKey, Math.min(max, cur + Math.round(max * p)));
-    }
-  }
-
-  /**
-   * Host-authoritative mage heal. HP is mutated only on the host (matching the
-   * damage pipeline) and then broadcast, so a client's local heal can't get
-   * overwritten by a stale syncPlayerHp ("healed then instantly reverted").
-   */
-  _applyMageHealAuthoritative() {
-    const isMultiplayer = Boolean(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2));
-    // Only the host mutates HP; the client waits for the synced value.
-    if (isMultiplayer && this.playerNumber !== 1) return;
-
-    const healPct = this._waveMageHealBonus > 0 ? this._waveMageHealBonus : 0.10;
-    this._healBothPercent(healPct);
-
-    // Push the new HP to the client immediately via both channels.
-    this.waveManager?.syncPlayerHp?.();
-    if (typeof this.emitPlayerResource === "function") {
-      this.emitPlayerResource({
-        hp: {
-          p1: this.hud?.health?.p1,
-          p2: this.hud?.health?.p2,
-        },
-      });
     }
   }
 
@@ -871,6 +877,7 @@ export class GameScene extends Phaser.Scene {
 
     if (entry.type === "mage") {
       entry.visual.anims?.play("mage-attack-mighty", true);
+      playMageAtkSfx(this);
       this._spawnFireball(entry, msg.fireball ?? {});
       entry.visual.once("animationcomplete-mage-attack-mighty", () => {
         entry.visual?.anims?.play("mage-run-idle", true);
@@ -882,6 +889,7 @@ export class GameScene extends Phaser.Scene {
       // Let host apply remote soldier melee damage via combat pipeline.
       // On client this is harmless because damageEnemyEntry is host-authoritative.
       entry.isAttacking = true;
+      playWarriorAtkSfx(this);
       entry.visual.anims?.play("soldier-attack01", true);
       onPlayerAttackStarted(this, entry);
       entry.visual.once("animationcomplete-soldier-attack01", () => {
@@ -900,10 +908,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (entry.type === "mage") {
-      // Host applies + syncs the heal when the client cast it; client just
-      // shows the effect and waits for the synced HP.
-      this._applyMageHealAuthoritative();
       this._playHealEffectsForPlayers();
+      playMageSkillSfx(this);
+      // The remote (client) mage healed — if we're the host, apply & sync the HP
+      // authoritatively so it sticks and propagates back to the client.
+      if (this._isHostAuthority()) this._applyMageHealAndSync();
       entry.visual.anims?.play("mage-charge-mighty", true);
       entry.visual.once("animationcomplete-mage-charge-mighty", () => {
         entry.visual?.anims?.play("mage-run-idle", true);
@@ -915,6 +924,7 @@ export class GameScene extends Phaser.Scene {
       // Mirror the buff timer so the update loop doesn't immediately destroy the wild effect.
       const now = Number(this.time?.now ?? 0);
       this.energyNoCostUntil = now + 5000;
+      playWarriorSkillSfx(this);
       // Mirror invincibility so the host (damage authority) skips player damage.
       if (this._waveWarriorSkillInvincible) this.playersInvincibleUntil = now + 5000;
       this._startWildEffect(entry);
@@ -1022,6 +1032,7 @@ export class GameScene extends Phaser.Scene {
         entry.gravityLocked = false;
       }
       entry.visual.anims.play("mage-attack-mighty", true);
+      playMageAtkSfx(this);
       const fireballDamage = resolvePlayerAttackDamage(entry, this);
       const fb = this._spawnFireball(entry, { damage: fireballDamage });
       this.emitPlayerAction("attack", {
@@ -1051,6 +1062,7 @@ export class GameScene extends Phaser.Scene {
     if (!this._tryConsumeEnergy(2)) return;
     entry.isAttacking = true;
     entry.sprite.setVelocityX(0);
+    playWarriorAtkSfx(this);
     entry.visual.anims.play("soldier-attack01", true);
     onPlayerAttackStarted(this, entry);
     this.emitPlayerAction("attack", {
@@ -1073,9 +1085,13 @@ export class GameScene extends Phaser.Scene {
     if (entry.type === "mage") {
       // RMB: consume 3 orbs, heal both. Wave 4+ may use % heal.
       if (!this._tryConsumeOrbs(roleKey, 3)) return;
-      // Heal is host-authoritative + synced so the client value isn't reverted.
-      this._applyMageHealAuthoritative();
+      // Heal is host-authoritative: only the host mutates HP, then syncs it.
+      // If the client healed locally, the next damage SYNC_HP would revert it.
+      // When the local player is the client, the host applies the heal upon
+      // receiving this "special" action (see playRemoteSpecial).
+      if (this._isHostAuthority()) this._applyMageHealAndSync();
       this._playHealEffectsForPlayers();
+      playMageSkillSfx(this);
       this.emitPlayerAction("special", {
         type: entry.type,
         flipX: Boolean(entry.visual?.flipX),
@@ -1099,6 +1115,7 @@ export class GameScene extends Phaser.Scene {
       this.energyNoCostUntil = now + 5000;
       // Wave 4: warrior ULT also makes both players invincible for its duration.
       if (this._waveWarriorSkillInvincible) this.playersInvincibleUntil = now + 5000;
+      playWarriorSkillSfx(this);
       this._startWildEffect(entry);
       this.emitPlayerAction("special", {
         type: entry.type,

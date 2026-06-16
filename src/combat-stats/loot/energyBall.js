@@ -46,38 +46,15 @@ export function createEnergyBallEntity(scene, x, y, opts = {}) {
   return entity;
 }
 
-/**
- * Generate the random scatter params for a burst (host computes these, then
- * ships them to the client so both sides spawn an identical-looking burst).
- * @returns {Array<{ox:number, oy:number, vx:number, vy:number}>}
- */
-export function makeBurstParams(count, spreadPx = 18) {
-  const params = [];
-  for (let i = 0; i < count; i += 1) {
-    params.push({
-      ox: (Math.random() - 0.5) * spreadPx * 2,
-      oy: -Math.random() * spreadPx,
-      vx: (Math.random() - 0.5) * 80,
-      vy: -40 - Math.random() * 60,
-    });
-  }
-  return params;
-}
-
-/**
- * Small spread so multiple drops don't stack perfectly.
- * Pass `opts.params` (from makeBurstParams) to spawn a deterministic burst that
- * matches across host/client; otherwise random params are generated locally.
- */
-export function spawnEnergyBallBurst(scene, x, y, count, opts = {}) {
-  const spreadPx = opts.spreadPx ?? 18;
-  const params = Array.isArray(opts.params) ? opts.params : makeBurstParams(count, spreadPx);
+/** Small spread so multiple drops don't stack perfectly. */
+export function spawnEnergyBallBurst(scene, x, y, count, spreadPx = 18) {
   const spawned = [];
   for (let i = 0; i < count; i += 1) {
-    const p = params[i] ?? { ox: 0, oy: 0, vx: 0, vy: 0 };
-    const entity = createEnergyBallEntity(scene, x + p.ox, y + p.oy);
+    const ox = (Math.random() - 0.5) * spreadPx * 2;
+    const oy = -Math.random() * spreadPx;
+    const entity = createEnergyBallEntity(scene, x + ox, y + oy);
     if (entity.sprite.body) {
-      entity.sprite.setVelocity(p.vx, p.vy);
+      entity.sprite.setVelocity((Math.random() - 0.5) * 80, -40 - Math.random() * 60);
     }
     spawned.push(entity);
   }

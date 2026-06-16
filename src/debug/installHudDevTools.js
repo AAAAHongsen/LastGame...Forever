@@ -33,6 +33,9 @@ function printHudDebugHelp() {
     "  ── 快速預設（套用 wave 數值）──",
     "  hudDebug.applyWaveStats(4)       // 套用 wave 4 玩家數值（含特殊規則）",
     "",
+    "  ── 測試房間 ──",
+    "  hudDebug.showWin()               // 顯示勝利畫面（僅 room 00001）",
+    "",
     "  hudDebug.help()",
   ].join("\n");
   // eslint-disable-next-line no-console
@@ -109,6 +112,17 @@ export function installHudDevTools(scene) {
         wm._applyPlayerStats(wm._getWaveCfg(waveNum), waveNum);
         // eslint-disable-next-line no-console
         console.log(`[hudDebug] 套用 wave ${waveNum} 玩家數值`);
+      },
+
+      showWin: () => {
+        if (!scene.isTestRoom) {
+          // eslint-disable-next-line no-console
+          console.warn("[hudDebug] showWin() 僅限測試房間 (room 00001)");
+          return;
+        }
+        scene.showWinScreen?.();
+        // eslint-disable-next-line no-console
+        console.log("[hudDebug] 顯示 Win 畫面");
       },
 
       getScene: () => getGameScene(),
