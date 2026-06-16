@@ -1,3 +1,4 @@
+/** 主選單 — 建立房間、加入流程與設定入口。 */
 import { BASE_WIDTH, BASE_HEIGHT } from "../config/constants.js";
 import { ensureBgm, playButtonHoverSfx, preloadAudio } from "../services/audioService.js";
 import { JoinRoomModal } from "../ui/JoinRoomModal.js";
@@ -16,7 +17,7 @@ export class FrontPageScene extends Phaser.Scene {
   }
 
   create() {
-    // Returning to the menu ends the current session and frees the room slot.
+    // 返回選單會結束目前連線並釋放房間名額。
     leaveActiveRoom();
     disposeBackgroundScenes(this);
 
@@ -38,7 +39,7 @@ export class FrontPageScene extends Phaser.Scene {
       };
       const onJoinRejected = ({ reason }) => {
         socket.off("roomJoined", onRoomJoined);
-        // Keep user on front page; show modal for retry.
+        // 留在首頁；顯示視窗供重試。
         this.joinModal.open();
         this.joinModal.setError(reason || "Join failed");
       };
@@ -95,7 +96,7 @@ export class FrontPageScene extends Phaser.Scene {
     const pressOffset = 3;
     let isPressed = false;
 
-    // Shadow stays fixed; panel + text shift on press.
+    // 陰影固定；按下時面板與文字位移。
     const shadow = this.add.rectangle(x, y, width, height, 0x3f2f3c, 0.9);
     shadow.setOrigin(0.5);
     shadow.setStrokeStyle(4, 0x1d1520);
@@ -103,7 +104,7 @@ export class FrontPageScene extends Phaser.Scene {
     const panel = this.add.rectangle(x, y - 6, width, height, 0x6b5163, 0.95);
     panel.setOrigin(0.5);
     panel.setStrokeStyle(4, 0x2d2030);
-    // Use plain Rectangle directly (not Container/Zone) to avoid Phaser 3.90 input bugs.
+    // 直接使用 Rectangle（非 Container/Zone）以避開 Phaser 3.90 輸入 bug。
     panel.setInteractive(
       new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height),
       Phaser.Geom.Rectangle.Contains

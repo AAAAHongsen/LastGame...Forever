@@ -1,6 +1,6 @@
 /**
- * Play a one-shot animation and resolve when it completes (key-matched).
- * @returns {Promise<Phaser.Animations.Animation>}
+ * 播放單次動畫，完成時 resolve（比對 key）。
+ * @returns {Promise<Phaser.Animations.Animation>} 動畫完成時 resolve
  */
 export function playAnimationOnce(sprite, key) {
   return new Promise((resolve) => {
@@ -19,7 +19,7 @@ export function playAnimationOnce(sprite, key) {
 }
 
 /**
- * Bind animationupdate for a single frame index; auto-removes prior handler stored on enemy.
+ * 綁定單一幀索引的 animationupdate；自動移除敵人上先前儲存的 handler。
  */
 export function onAnimationFrame(sprite, animKey, frameIndex, enemy, handlerKey, fn) {
   const prev = enemy[handlerKey];

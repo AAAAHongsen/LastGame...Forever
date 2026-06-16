@@ -1,3 +1,4 @@
+/** 玩家攻擊判定 — 戰士近戰幀與法師火球碰撞。 */
 import { arcadeBodiesOverlap, pickGroupMember } from "../enemy-system/combat/collision.js";
 import { findEnemyBySprite } from "../enemy-system/combat/targeting.js";
 import { getPlayerClassBaseAttack } from "./config/playerStats.js";
@@ -47,8 +48,7 @@ function getEnemyBodyCenterX(sprite) {
 }
 
 /**
- * Damage on touch; fireball keeps flying straight until it passes
- * the enemy's horizontal center (red line), then destroys.
+ * 接觸即傷害；火球直飛直到越過敵人水平中心（紅線）後銷毀。
  */
 function registerFireballHit(scene, fb, enemy) {
   const owner = fb.getData?.("owner") ?? scene.getControlledEntry?.() ?? null;
@@ -63,7 +63,7 @@ function registerFireballHit(scene, fb, enemy) {
   damageEnemyEntry(scene, enemy, damage, { source: "mage-fireball", player: owner });
 }
 
-/** After hit: keep flying straight until fireball passes enemy center X, then destroy. */
+/** 命中後：火球直飛至越過敵人中心 X 再銷毀。 */
 function updateFireballImpactTravel(scene) {
   for (const fb of scene.fireballs?.getChildren?.() ?? []) {
     if (!fb?.active || !fb.getData?.("impactTravel")) continue;

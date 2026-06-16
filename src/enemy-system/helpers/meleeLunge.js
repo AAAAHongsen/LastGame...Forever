@@ -1,6 +1,6 @@
 /**
- * Short forward burst at attack start (not a teleport).
- * @returns {Promise<void>}
+ * 攻擊開始時短距離前衝（非瞬移）。
+ * @returns {Promise<void>} 衝刺完成時 resolve
  */
 export function meleeLunge(scene, sprite, pixels, durationMs = 80, direction = null) {
   if (!sprite?.active || !pixels) return Promise.resolve();

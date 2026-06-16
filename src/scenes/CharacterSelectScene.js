@@ -1,13 +1,13 @@
+/** 選角 — 選戰士／法師、就緒後播放開場影片。 */
+import { BASE_WIDTH, BASE_HEIGHT } from "../config/constants.js";
 import { openSettingsOverlay, isSettingsOpen } from "../services/settingsOverlay.js";
 import { disposeBackgroundScenes, ensureMenuInput } from "../services/gameRunReset.js";
+import { bindCharacterSelectNetwork } from "./characterSelectNetwork.js";
 
-const BASE_WIDTH = 1024;
-const BASE_HEIGHT = 576;
-
-const CHARACTER_SIDES = {
+export const CHARACTER_SIDES = Object.freeze({
   LEFT: "left",
   RIGHT: "right",
-};
+});
 
 export class CharacterSelectScene extends Phaser.Scene {
   constructor() {
@@ -61,6 +61,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     ensureMenuInput(this);
   }
 
+  // ── UI 面板 ───────────────────────────────────────────────────────────
+
   createLeftCharacterPanel() {
     this.add.rectangle(255, 255, 430, 420, 0xffffff, 0.14).setStrokeStyle(4, 0x8f6f43, 0.9);
 
@@ -75,7 +77,7 @@ export class CharacterSelectScene extends Phaser.Scene {
 
     this.leftCharacter = this.add.sprite(255, 603, "soldier-idle-sheet", 0);
     this.leftCharacter.setOrigin(0.5, 1);
-    // Soldier sprite is tiny inside the 100x100 frame, crop to full body.
+    // 戰士 sprite 在 100x100 框內偏小，裁切至全身。
     this.leftCharacter.setCrop(36, 22, 28, 40);
     this.leftCharacter.setDisplaySize(500, 500);
     this.leftCharacter.setTint(0xffffff);
@@ -237,13 +239,15 @@ export class CharacterSelectScene extends Phaser.Scene {
     });
   }
 
+  // ── 控制與連線 ────────────────────────────────────────────────────────────
+
   setupControls() {
     this.playerState = {
       1: { joined: false, selected: null, ready: false },
       2: { joined: false, selected: null, ready: false },
     };
 
-    // Test room allows single client to control both players for local debugging.
+    // 測試房允許單一客戶端控制雙方玩家以便本機除錯。
     this.activePlayer = this.isTestRoom ? 1 : null;
     if (this.isTestRoom) {
       this.playerState[1].joined = true;
@@ -259,7 +263,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       esc: Phaser.Input.Keyboard.KeyCodes.ESC,
     });
 
-    // Prevent browser focusing address bar in test room.
+    // 測試房防止瀏覽器聚焦網址列。
     if (this.isTestRoom) {
       this.input.keyboard.addCapture(Phaser.Input.Keyboard.KeyCodes.TAB);
       this.onTabKeyDown = (event) => {
@@ -285,65 +289,10 @@ export class CharacterSelectScene extends Phaser.Scene {
   }
 
   setupNetwork() {
-    import("../services/socketService.js").then(({ ensureSocket }) => {
-      const socket = ensureSocket();
-      this.socket = socket;
-
-      const onRoomState = (state) => {
-        if (!state || state.code !== this.roomCode) return;
-        this.roomState = state;
-
-        const p1 = state.players?.[1] ?? null;
-        const p2 = state.players?.[2] ?? null;
-
-        this.playerState[1].joined = Boolean(p1);
-        this.playerState[2].joined = Boolean(p2);
-        this.playerState[1].selected = p1?.selectedSide ?? null;
-        this.playerState[2].selected = p2?.selectedSide ?? null;
-        this.playerState[1].ready = Boolean(p1?.ready);
-        this.playerState[2].ready = Boolean(p2?.ready);
-        this.refreshUI();
-      };
-
-      const onStartGame = ({ code }) => {
-        if (code !== this.roomCode) return;
-        this.hideCountdown();
-        this.scene.start("IntroVideoScene", {
-          roomCode: this.roomCode,
-          playerNumber: this.playerNumber,
-          selections: {
-            1: this.playerState[1].selected,
-            2: this.playerState[2].selected,
-          },
-        });
-      };
-
-      const onStartCountdown = ({ code, startAt, durationMs }) => {
-        if (code !== this.roomCode) return;
-        this.startCountdown(startAt, durationMs);
-      };
-
-      const onCountdownCancelled = ({ code }) => {
-        if (code !== this.roomCode) return;
-        this.hideCountdown();
-      };
-
-      socket.on("roomState", onRoomState);
-      socket.on("startCountdown", onStartCountdown);
-      socket.on("countdownCancelled", onCountdownCancelled);
-      socket.on("startGame", onStartGame);
-
-      // Ensure we have fresh state even if we missed initial broadcast during scene transition.
-      socket.emit("getRoomState", { code: this.roomCode });
-
-      this.events.once("shutdown", () => {
-        socket.off("roomState", onRoomState);
-        socket.off("startCountdown", onStartCountdown);
-        socket.off("countdownCancelled", onCountdownCancelled);
-        socket.off("startGame", onStartGame);
-      });
-    });
+    bindCharacterSelectNetwork(this);
   }
+
+  // ── 倒數 ─────────────────────────────────────────────────────────────
 
   startCountdown(startAt, durationMs) {
     const startAtMs = Number(startAt);
@@ -377,6 +326,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     }
     if (this.countdownText) this.countdownText.setVisible(false);
   }
+
+  // ── 輸入與選擇 ─────────────────────────────────────────────────────────────
 
   update() {
     if (isSettingsOpen(this)) return;
@@ -469,7 +420,6 @@ export class CharacterSelectScene extends Phaser.Scene {
         const startAt = Date.now() + 5000;
         this.startCountdown(startAt, 5000);
         this.time.delayedCall(5000, () => {
-          // If someone cancelled during countdown, don't start.
           if (!(this.playerState[1].ready && this.playerState[2].ready)) return;
           this.hideCountdown();
           this.scene.start("IntroVideoScene", {
@@ -490,6 +440,8 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.showHintMessage(this.defaultHintText);
   }
 
+  // ── UI 更新 ────────────────────────────────────────────────────────────
+
   refreshUI() {
     const p1 = this.playerState[1];
     const p2 = this.playerState[2];
@@ -503,7 +455,7 @@ export class CharacterSelectScene extends Phaser.Scene {
       this.player1StatusText.setPosition(512, 340);
       this.player2StatusText.setPosition(512, 378);
     } else {
-      // Player 2 not in room: keep center board only for player 1.
+      // Player 2 未加入：中央面板僅顯示 player 1。
       this.player2StatusText.setVisible(false);
       this.statusBoard.setSize(320, 88);
       this.player1StatusText.setPosition(512, 360);
@@ -566,5 +518,5 @@ export class CharacterSelectScene extends Phaser.Scene {
     }
   }
 
-  // Countdown removed: server emits "startGame" when both ready.
+  // 已移除倒數：雙方就緒時由伺服器 emit "startGame"。
 }

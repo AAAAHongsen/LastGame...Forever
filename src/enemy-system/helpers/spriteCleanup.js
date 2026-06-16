@@ -1,3 +1,4 @@
+/** 投射物／敵人 sprite 銷毀與畫面外清理。 */
 import { BASE_HEIGHT, BASE_WIDTH } from "../constants.js";
 
 export function isOutOfBounds(sprite) {

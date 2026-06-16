@@ -1,3 +1,4 @@
+/** 遊戲內 HUD — HP、能量、寶珠、波次、玩家名稱。 */
 import { BASE_WIDTH } from "../config/constants.js";
 
 const clampInt = (n, min, max) => {
@@ -18,7 +19,7 @@ export class HudUI {
 
     this.wave = 1;
 
-    // Defaults from spec
+    // 規格預設值
     this.healthMax = { p1: 100, p2: 70 };
     this.health = { p1: 100, p2: 70 };
     this.energyMax = 50;
@@ -37,7 +38,7 @@ export class HudUI {
     this.gfx = s.add.graphics().setDepth(200).setScrollFactor(0);
     this.root.add(this.gfx);
 
-    // Layout tuned to match reference screenshot proportions.
+    // 版面依參考截圖比例調整。
     const topY = 8;
     const sidePad = 18;
     const barsY = topY + 30;
@@ -79,16 +80,16 @@ export class HudUI {
       barsY,
       energyY: energyYAdj,
       orbsY: orbsYAdj,
-      // Health bars (solid fill, boss-style)
+      // 血條（實心填充、Boss 風格）
       hpBarW,
       hpBarH,
       hpTextY,
-      // Energy bar (shared)
+      // 能量條（共用）
       energyBarW: BASE_WIDTH - sidePad * 2,
       energyBarH: 10,
       energySegmentGap: 1,
       energyPadding: 2,
-      // Orbs
+      // 寶珠
       orbR: 8,
       orbGap: 6,
     };
@@ -113,8 +114,8 @@ export class HudUI {
       this.p2HpText,
     ]);
 
-    // Energy regen: +1 per second, capped at energyMax.
-    // Avoid redraw when already full.
+    // 能量回復：每秒 +1，上限 energyMax。
+    // 已滿時避免重繪。
     if (!this._energyRegenEvent && s?.time?.addEvent) {
       this._energyRegenEvent = s.time.addEvent({
         delay: 1000,
@@ -170,33 +171,33 @@ export class HudUI {
     const blue   = 0x1e88e5;
     const emptyDark = 0x1b1b1b;
 
-    // ── Solid-fill boss-style HP bars ─────────────────────────────────────
+    // ── 實心填充 Boss 風格血條 ─────────────────────────────────────
     const drawHpBar = (x, y, alignRight, current, max) => {
       const pct = max > 0 ? clampNumber(current / max, 0, 1) : 0;
       const left = alignRight ? x - hpBarW : x;
 
-      // Background
+      // 背景
       g.fillStyle(emptyDark, 0.85);
       g.fillRoundedRect(left, y, hpBarW, hpBarH, 3);
 
-      // Coloured fill (green → yellow → red)
+      // 彩色填充（綠 → 黃 → 紅）
       if (pct > 0) {
         const fillColor = pct > 0.5 ? 0x44cc44 : pct > 0.25 ? 0xeeaa11 : 0xe53935;
         g.fillStyle(fillColor, 1);
         g.fillRoundedRect(left + 1, y + 1, Math.max(2, (hpBarW - 2) * pct), hpBarH - 2, 2);
       }
 
-      // Border
+      // 邊框
       g.lineStyle(2, black, 1);
       g.strokeRoundedRect(left, y, hpBarW, hpBarH, 3);
     };
 
-    // Left: Player1, Right: Player2
+    // 左：Player1，右：Player2
     drawHpBar(sidePad, barsY, false, this.health.p1, this.healthMax.p1);
     drawHpBar(BASE_WIDTH - sidePad, barsY, true, this.health.p2, this.healthMax.p2);
     this._refreshHpText();
 
-    // Energy bar (shared, full width, segmented like HP: max increases => more cells)
+    // 能量條（共用、全寬、如 HP 分段：上限增加 => 更多格）
     const energyLeft = (BASE_WIDTH - energyBarW) / 2;
     g.lineStyle(2, black, 1);
     g.strokeRect(energyLeft, energyY, energyBarW, energyBarH);
@@ -212,24 +213,24 @@ export class HudUI {
     let segX = energyLeft + energyPadding;
 
     for (let i = 0; i < segCount; i += 1) {
-      // Empty segment background
+      // 空格背景
       g.fillStyle(emptyDark, 1);
       g.fillRect(segX, segY, segW, innerEH);
 
-      // Filled part (1 energy per cell)
+      // 已填部分（每格 1 能量）
       if (i < eCur) {
         g.fillStyle(yellow, 1);
         g.fillRect(segX, segY, segW, innerEH);
       }
 
-      // Cell border
+      // 格邊框
       g.lineStyle(2, black, 1);
       g.strokeRect(segX, segY, segW, innerEH);
 
       segX += segW + energySegmentGap;
     }
 
-    // Orbs (5 circles each side)
+    // 寶珠（每側 5 圓）
     const drawOrbs = (x, y, alignRight, filledCount) => {
       const filled = clampInt(filledCount, 0, this.orbsMax);
       const totalW = this.orbsMax * (orbR * 2) + (this.orbsMax - 1) * orbGap;
@@ -257,7 +258,7 @@ export class HudUI {
   }
 
   setNames({ player1Name, player2Name, p1Name, p2Name, knightName, mageName } = {}) {
-    // Preferred: player1/player2 (also accept p1/p2). Back-compat: knight/mage.
+    // 優先 player1/player2（亦接受 p1/p2）。相容：knight/mage。
     const left = player1Name ?? p1Name ?? knightName;
     const right = player2Name ?? p2Name ?? mageName;
     if (typeof left === "string") this.p1NameText.setText(left);
@@ -315,7 +316,7 @@ export class HudUI {
       this._energyRegenEvent.remove(false);
       this._energyRegenEvent = null;
     }
-    // Scene shutdown destroys display objects — only clear refs to avoid double-destroy.
+    // 場景關閉會銷毀顯示物件 — 僅清 ref 避免重複 destroy。
     this.root = null;
     this.gfx = null;
     this.p1NameText = null;

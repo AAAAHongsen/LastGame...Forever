@@ -1,5 +1,6 @@
 import { rollDropTable } from "../config/dropTables.js";
 import { spawnEnergyBallBurst } from "./energyBall.js";
+import { isHostScene, isMultiplayerScene } from "../../services/multiplayerSession.js";
 
 let _lootIdSeq = 0;
 function nextLootId() { return ++_lootIdSeq; }
@@ -9,19 +10,17 @@ const ITEM_SPAWNERS = Object.freeze({
 });
 
 /**
- * Spawn loot from a drop table id at world position.
- * @param {Phaser.Scene} scene
- * @param {string} tableId
- * @param {number} x
- * @param {number} y
+ * 依掉落表 id 在世界座標生成戰利品。
+ * @param {Phaser.Scene} scene 場景
+ * @param {string} tableId 掉落表 id
+ * @param {number} x X 座標
+ * @param {number} y Y 座標
  */
 export function spawnDropsFromTable(scene, tableId, x, y, rng = Math.random) {
   const rolled = rollDropTable(tableId, rng);
-  const isMultiplayer = Boolean(scene?.roomCode && (scene?.playerNumber === 1 || scene?.playerNumber === 2));
-  const isHost = !isMultiplayer || scene?.playerNumber === 1;
 
-  // Client does not roll local loot; it waits for host's explicit spawn sync.
-  if (isMultiplayer && !isHost) {
+  // 客戶端不本地擲掉落；等待房主明確 spawn 同步。
+  if (isMultiplayerScene(scene) && !isHostScene(scene)) {
     return [];
   }
 
@@ -29,12 +28,12 @@ export function spawnDropsFromTable(scene, tableId, x, y, rng = Math.random) {
   for (const drop of rolled) {
     const spawner = ITEM_SPAWNERS[drop.item];
     if (!spawner) {
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console — 略過主控台警告
       console.warn("[combat-stats] Unknown drop item:", drop.item);
       continue;
     }
     const entities = spawner(scene, x, y, drop.count);
-    // Assign unique IDs so the host can deduplicate when client confirms pickup.
+    // 指派唯一 ID，客戶端確認拾取時房主可去重。
     const lootIds = entities.map((e) => {
       const id = nextLootId();
       e._lootId = id;
@@ -42,7 +41,7 @@ export function spawnDropsFromTable(scene, tableId, x, y, rng = Math.random) {
       return id;
     });
     spawned.push(...entities);
-    if (scene?.socket && isHost) {
+    if (scene?.socket && isHostScene(scene)) {
       scene.socket.emit("waveLootSpawn", {
         item: drop.item,
         count: drop.count,

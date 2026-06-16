@@ -1,7 +1,7 @@
 /**
- * Shared hurt flicker — does not change anim state, velocity, or AI state.
- * @param {Phaser.Scene} scene
- * @param {Phaser.GameObjects.GameObject} target — sprite / visual
+ * 共用受傷閃爍 — 不改變動畫、速度或 AI 狀態。
+ * @param {Phaser.Scene} scene 場景
+ * @param {Phaser.GameObjects.GameObject} target 目標 — sprite／visual
  */
 export function playDamageFlash(scene, target) {
   if (!target?.active) return;
@@ -19,7 +19,7 @@ export function playDamageFlash(scene, target) {
   });
 }
 
-/** Prefer visual sprite; fall back to physics sprite. */
+/** 優先 visual sprite；否則使用物理 sprite。 */
 export function getEnemyFlashTarget(enemy) {
   if (!enemy) return null;
   return enemy.visual ?? enemy.sprite ?? null;

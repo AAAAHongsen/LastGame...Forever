@@ -1,3 +1,4 @@
+/** 敵人系統公開 API — 資源、動畫、生成與 registry 匯出。 */
 export { preloadEnemyAssets } from "./assets/enemyAssets.js";
 export { createEnemyAnimations } from "./assets/enemyAnimations.js";
 export { installEnemyDevTools } from "./installEnemyDevTools.js";

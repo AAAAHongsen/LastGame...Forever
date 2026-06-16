@@ -1,3 +1,4 @@
+/** 場景中可拾取戰利品註冊、更新與清除。 */
 import { ENERGY_BALL_TEXTURE } from "./energyBallConfig.js";
 
 export function initLootManager(scene) {
@@ -45,7 +46,7 @@ export function clearLootPickups(scene) {
   mgr.group?.clear?.(true, true);
 }
 
-/** Preload energy ball image (call from scene preload). */
+/** 預載能量球圖（在 scene preload 呼叫）。 */
 export function preloadCombatLootAssets(scene) {
   scene.load.image(ENERGY_BALL_TEXTURE, "Assets/effects/energyball/energy_ball.png");
 }

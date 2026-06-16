@@ -1,6 +1,6 @@
 /**
- * Canonical base HP / drop table ids per enemy type.
- * Registry stats.baseHp should match; this file is the single reference for tuning.
+ * 各敵人類型的標準基礎 HP／掉落表 id。
+ * registry stats.baseHp 應一致；本檔為調參唯一參考。
  */
 export const ENEMY_BASE_STATS = Object.freeze({
   mushroom: { baseHp: 5, drops: "normal" },

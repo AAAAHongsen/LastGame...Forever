@@ -1,8 +1,8 @@
 /**
- * @param {Phaser.Scene} scene
- * @param {object} config — ENEMY_TYPES entry
- * @param {number} x
- * @param {number} y
+ * @param {Phaser.Scene} scene 場景
+ * @param {object} config — ENEMY_TYPES 項目
+ * @param {number} x X 座標
+ * @param {number} y Y 座標
  */
 export function createGroundEnemy(scene, config, x, y) {
   const s = scene.physics.add.sprite(x, y, config.texture, 0);
@@ -14,7 +14,7 @@ export function createGroundEnemy(scene, config, x, y) {
 
   if (config.spawn?.flipX) s.setFlipX(true);
 
-  // Ground enemies should fall by default; allow registry override per-enemy.
+  // 地面敵人預設受重力；registry 可逐敵覆寫。
   if (s.body) {
     const allowGravity = config.physics?.allowGravity;
     if (typeof allowGravity === "boolean") s.body.setAllowGravity(allowGravity);

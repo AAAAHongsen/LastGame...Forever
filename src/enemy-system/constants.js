@@ -1,8 +1,7 @@
-import { BASE_HEIGHT, BASE_WIDTH } from "../config/constants.js";
+/** 敵人系統共用常數 — 畫布尺寸、地面高度、狀態列舉。 */
+import { BASE_HEIGHT, BASE_WIDTH, GROUND_SURFACE_Y } from "../config/constants.js";
 
-export { BASE_HEIGHT, BASE_WIDTH };
-
-export const GROUND_SURFACE_Y = BASE_HEIGHT - 30;
+export { BASE_HEIGHT, BASE_WIDTH, GROUND_SURFACE_Y };
 
 export const ENEMY_STATE = Object.freeze({
   IDLE: "idle",

@@ -1,3 +1,4 @@
+/** 波前數值摘要覆蓋層 — 每波開始前顯示，含特殊規則。 */
 import { BASE_WIDTH, BASE_HEIGHT } from "../config/constants.js";
 import { playButtonHoverSfx } from "../services/audioService.js";
 
@@ -42,7 +43,7 @@ export class PreWaveModal {
 
     const title = s.add.text(0, -(panelH / 2) + 42, `Wave ${waveNum}`, TITLE_STYLE).setOrigin(0.5);
 
-    // Stat rows
+    // 數值列
     const parts = [];
     const topY = -(panelH / 2) + 100;
 
@@ -54,7 +55,7 @@ export class PreWaveModal {
       );
     });
 
-    // Special-rule notes (italic, centred)
+    // 特殊規則說明（斜體、置中）
     const notesStartY = topY + rows.length * statRowH + 10;
     noteLines.forEach((line, i) => {
       parts.push(
@@ -62,7 +63,7 @@ export class PreWaveModal {
       );
     });
 
-    // Continue button
+    // 繼續按鈕
     const btnY = panelH / 2 - 44;
     const btnBg = s.add.rectangle(0, btnY, 220, 56, 0x6b5163, 0.95).setStrokeStyle(4, 0x2d2030);
     btnBg.setInteractive(
@@ -92,7 +93,7 @@ export class PreWaveModal {
     const rows = [];
     const scene = s;
 
-    // Get player stats per class in this wave
+    // 取得本波各職業玩家數值
     const soldierStats = cfg?.players?.soldier;
     const mageStats    = cfg?.players?.mage;
 
@@ -126,7 +127,7 @@ export class PreWaveModal {
 
   destroy() {
     this._done = true;
-    try { this.scene.input.setTopOnly(false); } catch { /* ignore */ }
+    try { this.scene.input.setTopOnly(false); } catch { /* 略過 */ }
     this.container?.destroy(true);
     this.container = null;
   }

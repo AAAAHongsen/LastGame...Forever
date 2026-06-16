@@ -1,6 +1,6 @@
 /**
- * Wave sync socket helpers.
- * Host emits these; client receives and applies them.
+ * 波次同步 socket 輔助。
+ * 房主發送；客戶端接收並套用。
  */
 
 export const WAVE_EVENTS = Object.freeze({
@@ -15,6 +15,7 @@ export const WAVE_EVENTS = Object.freeze({
   SYNC_HP:          "waveSyncHp",
   TUTORIAL_READY:   "waveTutorialReady",
   TUTORIAL_STATUS:  "waveTutorialStatus",
+  STATE_REQUEST:    "waveStateRequest",
 });
 
 export function emitWaveState(socket, payload) {

@@ -1,5 +1,7 @@
+/** 能量球磁力吸引、拾取 tween 與多人 waveLootCollected 同步。 */
 import { getNearestPlayerToPoint, grantOrbsToPlayer } from "./orbRewards.js";
 import { unregisterLootPickup } from "./lootManager.js";
+import { isMultiplayerScene } from "../../services/multiplayerSession.js";
 
 const MAGNET_SPEED = 240;
 const COLLECT_TWEEN_MS = 100;
@@ -37,15 +39,11 @@ function collectEnergyBall(scene, entity, playerEntry) {
       unregisterLootPickup(scene, entity);
       ball.destroy();
 
-      // In multiplayer, tell the OTHER side to suppress its duplicate ball.
-      const isMultiplayer = Boolean(
-        scene?.roomCode &&
-          (scene?.playerNumber === 1 || scene?.playerNumber === 2)
-      );
-      if (isMultiplayer && scene?.socket) {
+      // 多人模式：通知另一側略過重複球體。
+      if (isMultiplayerScene(scene) && scene?.socket) {
         const lootId = entity._lootId ?? ball.getData?.("lootId");
         const playerIndex = (scene.players ?? []).indexOf(playerEntry);
-        // Emit to both sides: the local side ignores its own message via playerNumber check.
+        // 雙向 emit：本機端以 playerNumber 檢查略過自己的訊息。
         scene.socket.emit("waveLootCollected", { lootId, playerIndex });
       }
 
@@ -58,7 +56,7 @@ function collectEnergyBall(scene, entity, playerEntry) {
   });
 }
 
-/** Magnet toward nearest player; auto-collect within pickup radius. */
+/** 吸向最近玩家；進入拾取半徑自動收集。 */
 export function updateLootMagnetAndPickup(scene) {
   const mgr = scene.lootManager;
   if (!mgr?.pickups?.length) return;

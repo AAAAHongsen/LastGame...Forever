@@ -1,4 +1,4 @@
-/** Preload all enemy / boss / effect spritesheets. */
+/** 預載所有敵人／Boss／特效 spritesheet。 */
 export function preloadEnemyAssets(scene) {
   const E = "Assets/enenmies";
   const FX = "Assets/effects";

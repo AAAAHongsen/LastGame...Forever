@@ -1,3 +1,7 @@
+/**
+ * Boss／開發用攻擊觸發 — 蝙蝠、flyBoss 與 Gorgon 階段行動。
+ * 各 Gorgon 行動：進入 ATTACK → 幀回呼 → playAnimationOnce → IDLE。
+ */
 import { faceTowardPlayer } from "../combat/facing.js";
 import { getNearestPlayer, getPlayers } from "../combat/targeting.js";
 import { damagePlayerEntry } from "../combat/damage.js";
@@ -11,6 +15,8 @@ import {
   playAnimationOnce,
 } from "../helpers/playAnimationOnce.js";
 import { ENEMY_STATE } from "../helpers/stateMachine.js";
+
+// ── 開發／測試觸發 ─────────────────────────────────────────────────────
 
 export function triggerBatAttack(scene, enemy) {
   const s = enemy?.sprite;
@@ -42,6 +48,9 @@ export function triggerFlyBossAttack(scene, enemy) {
   return proj;
 }
 
+// ── Gorgon Boss 行動 ─────────────────────────────────────────────────────
+
+/** 地面重擊 — 在指定動畫幀生成下落火球。 */
 export function playGorgonStomp(scene, enemy) {
   const s = enemy?.sprite;
   const cfg = enemy?.config;
@@ -72,7 +81,7 @@ export function playGorgonStomp(scene, enemy) {
   return true;
 }
 
-/** Gorgon tail-swipe melee — hits players within ~180px. */
+/** 水平尾掃 — 對 MELEE_RANGE px 內玩家造成 AoE 傷害。 */
 export function playGorgonMelee(scene, enemy) {
   const s = enemy?.sprite;
   const cfg = enemy?.config;
@@ -87,7 +96,7 @@ export function playGorgonMelee(scene, enemy) {
   const MELEE_RANGE = 180;
   const MELEE_DMG   = 40;
 
-  // Apply damage at mid-animation (frame 3)
+  // 動畫中段（第 3 幀）套用傷害
   onAnimationFrame(s, meleeKey, 3, enemy, "_meleeHitHandler", () => {
     for (const p of getPlayers(scene)) {
       if (!p?.sprite?.active) continue;
@@ -106,6 +115,7 @@ export function playGorgonMelee(scene, enemy) {
   return true;
 }
 
+/** 光束蓄力 — 暫停動畫、生成雷射危害、holdMs 後恢復。 */
 export function playGorgonBeam(scene, enemy) {
   const s = enemy?.sprite;
   const cfg = enemy?.config;

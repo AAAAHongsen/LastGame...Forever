@@ -1,3 +1,4 @@
+/** 特效種類 → 生成函式對照（除錯預覽與 bossActions 使用）。 */
 import { spawnFallingFireball, spawnGroundedFirePreview } from "../effects/fireball.js";
 import { spawnLaser } from "../effects/laser.js";
 import {
@@ -8,7 +9,7 @@ import {
 import { spawnSoundWave } from "../effects/soundWave.js";
 import { GROUND_SURFACE_Y } from "../constants.js";
 
-/** Effect preview / debug spawns (non-combat telegraphs use add.sprite). */
+/** 特效預覽／除錯生成（非戰鬥預警使用 add.sprite）。 */
 export const EFFECTS = {
   soundWave: (scene, opts = {}) => {
     const { x, y } = opts;

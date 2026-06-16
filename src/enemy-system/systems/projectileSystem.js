@@ -1,7 +1,8 @@
+/** 敵人投射物群組、危害區與越界清理。 */
 import { igniteGroundFires } from "../effects/fireball.js";
 import { GROUND_SURFACE_Y } from "../constants.js";
 
-// Fire on platforms is lifted 2 grid units (16 px) so it sits visually on the surface.
+// 平台上火焰上移 2 格（16 px）以視覺貼合表面。
 const PLATFORM_FIRE_Y_LIFT = 7;
 
 function _landFireball(scene, proj) {
@@ -9,10 +10,10 @@ function _landFireball(scene, proj) {
   const onLand = proj.getData("onLand");
   const lx = proj.x;
   const bodyHalfH = (proj.body?.height ?? 24) / 2;
-  // Raw landing y (centre → bottom of body + small margin).
+  // 原始著陸 y（中心 → body 底 + 小邊距）。
   const rawLy = proj.y + bodyHalfH + 8;
   const isGround = rawLy >= GROUND_SURFACE_Y;
-  // Platform fires are lifted upward; ground fires are capped at GROUND_SURFACE_Y.
+  // 平台火焰上移；地面火焰上限為 GROUND_SURFACE_Y。
   const ly = isGround
     ? GROUND_SURFACE_Y
     : rawLy - PLATFORM_FIRE_Y_LIFT;
@@ -30,13 +31,13 @@ export function initProjectileSystem(scene) {
   }
 
   if (!scene.projectileSystem._platformCollider && scene.platformBodies) {
-    // Fire spread occupies impactX ± FIRE_HALF_SPAN px (5 offsets: -48,-24,0,+24,+48).
+    // 火焰範圍佔 impactX ± FIRE_HALF_SPAN px（5 偏移：-48,-24,0,+24,+48）。
     const FIRE_HALF_SPAN = 48;
 
     scene.projectileSystem._platformCollider = scene.physics.add.collider(
       scene.projectileSystem.group,
       scene.platformBodies,
-      // ── overlap callback ─────────────────────────────────────────────
+      // ── overlap 回呼 ─────────────────────────────────────────────
       (proj) => {
         if (!proj?.active) return;
         const k = proj.getData?.("testProjKind");
@@ -46,18 +47,18 @@ export function initProjectileSystem(scene) {
         }
         proj.destroy();
       },
-      // ── process callback ─────────────────────────────────────────────
-      // Returns false to let the fireball pass through the body.
-      //   • platformPassThrough=true  → skip ALL platforms (land at ground via updateProjectiles)
-      //   • fire spread doesn't fit   → skip this platform, keep falling
-      //   • fire spread fits          → resolve collision, land here
+      // ── process 回呼 ─────────────────────────────────────────────
+      // 回傳 false 讓火球穿過 body。
+      //   • platformPassThrough=true → 略過所有平台（經 updateProjectiles 著陸地面）
+      //   • 火焰範圍放不下 → 略過此平台，繼續下落
+      //   • 火焰範圍放得下 → 解析碰撞，在此著陸
       (proj, platform) => {
         if (proj.getData?.("testProjKind") !== "fallFireball") return true;
 
-        // 50 % random pass-through (skip every platform, caught at ground level).
+        // 50% 隨機穿透（略過所有平台，在地面層攔截）。
         if (proj.getData("platformPassThrough")) return false;
 
-        // Check whether all fire positions fit within this platform's width.
+        // 檢查所有火焰位置是否都在此平台寬度內。
         const impactX = proj.x;
         const platHalfW = (platform.displayWidth ?? platform.width ?? 0) / 2;
         const platLeft  = platform.x - platHalfW;
@@ -66,8 +67,8 @@ export function initProjectileSystem(scene) {
         const fits = (impactX - FIRE_HALF_SPAN >= platLeft) &&
                      (impactX + FIRE_HALF_SPAN <= platRight);
 
-        // If fire doesn't fit, pass through; fireball continues falling
-        // until it lands on a wider platform or the ground.
+        // 若放不下則穿過；火球繼續下落
+        // 直到落在更寬平台或地面。
         return fits;
       }
     );
@@ -86,13 +87,13 @@ export function updateProjectiles(scene) {
     if (ch.getData("testProjKind") !== "fallFireball") continue;
     if (!ch.body) continue;
 
-    // Keep velocity applied (physics group may reset it).
+    // 保持速度（物理群組可能重置）。
     if (ch.body.velocity.y === 0 && ch.getData("fallSpeed")) {
       ch.setVelocity(0, ch.getData("fallSpeed"));
     }
 
-    // Pass-through fireballs skip all platform colliders; catch them at ground level.
-    // Use GROUND_SURFACE_Y minus a small margin so _landFireball's offset lands correctly.
+    // 穿透火球略過所有平台 collider；在地面層攔截。
+    // 使用 GROUND_SURFACE_Y 減小邊距，使 _landFireball 偏移著陸正確。
     if (ch.getData("platformPassThrough") && ch.y + (ch.body?.height ?? 24) / 2 >= GROUND_SURFACE_Y) {
       _landFireball(scene, ch);
     }

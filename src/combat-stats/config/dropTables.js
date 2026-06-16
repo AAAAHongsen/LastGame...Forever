@@ -1,6 +1,6 @@
 /**
- * Configurable loot tables — referenced by enemy registry `drops` key.
- * entries: { item, count, chance } — chance 1 = always
+ * 可設定掉落表 — 由敵人 registry `drops` 鍵引用。
+ * entries: { item, count, chance } — chance 1 = 必定
  */
 export const DROP_TABLES = Object.freeze({
   normal: {
@@ -18,7 +18,7 @@ export function getDropTable(tableId) {
   return DROP_TABLES[tableId] ?? null;
 }
 
-/** @returns {{ item: string, count: number }[]} */
+/** @returns {{ item: string, count: number }[]} 掉落項目陣列 */
 export function rollDropTable(tableId, rng = Math.random) {
   const table = getDropTable(tableId);
   if (!table?.entries?.length) return [];

@@ -1,7 +1,7 @@
-/** Forward speed during melee swipe (px/ms), matched to mushroom lunge pace. */
+/** 近戰揮砍前進速度（px/ms），與蘑菇衝刺節奏一致。 */
 export const MELEE_SWIPE_PX_PER_MS = 20 / 90;
 
-/** Mushroom attack anim length (10 frames @ 14fps). */
+/** 蘑菇攻擊動畫長度（10 幀 @ 14fps）。 */
 export const MUSHROOM_ATTACK_ANIM_MS = (10 / 14) * 1000;
 
 function resolveAttackRangeFromAnim(scene, cfg, animMsOverride) {
@@ -28,7 +28,7 @@ function resolveAttackRangeFromAnim(scene, cfg, animMsOverride) {
   return Math.max(floor, computed);
 }
 
-/** Max horizontal distance (pre-lunge) to start a lunge; equals post-lunge slack + lunge travel. */
+/** 開始衝刺前最大水平距離；等於衝刺後餘距 + 衝刺位移。 */
 export function resolveMushroomEngageRange(cfg) {
   const melee = cfg.melee ?? {};
   const lungePx = melee.lungePx ?? melee.lunge ?? 20;
@@ -36,7 +36,7 @@ export function resolveMushroomEngageRange(cfg) {
   return lungePx + postLungeSlack;
 }
 
-/** Skeleton uses its own anim length, then scales range to half. */
+/** 骷髏使用自身動畫長度，再將範圍縮為一半。 */
 export function resolveSkeletonAttackRange(scene, cfg) {
   const full = resolveAttackRangeFromAnim(scene, cfg);
   const scale = cfg.stats?.attackRangeScale ?? 0.5;

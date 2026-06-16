@@ -1,10 +1,12 @@
-/** Enable: `enemyDebug.skeletonTrace(true)` or `window.__skeletonAttackDebug = true` */
+/** 啟用：`enemyDebug.skeletonTrace(true)` 或 `window.__skeletonAttackDebug = true` */
+import { createAttackDebugHelper } from "./attackDebug.js";
+
+const helper = createAttackDebugHelper("skeleton-attack", "__skeletonAttackDebug");
+
 export function isSkeletonAttackDebug() {
-  return typeof window !== "undefined" && Boolean(window.__skeletonAttackDebug);
+  return helper.isEnabled();
 }
 
 export function skeletonAttackLog(phase, payload) {
-  if (!isSkeletonAttackDebug()) return;
-  // eslint-disable-next-line no-console
-  console.log(`[skeleton-attack] ${phase}`, payload);
+  helper.log(phase, payload);
 }

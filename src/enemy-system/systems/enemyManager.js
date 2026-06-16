@@ -1,3 +1,4 @@
+/** 敵人生成、registry、AI tick 分派與清理。 */
 import { BASE_HEIGHT, BASE_WIDTH } from "../constants.js";
 import { createFlyingEnemy } from "../factories/createFlyingEnemy.js";
 import { createGroundEnemy } from "../factories/createGroundEnemy.js";
@@ -39,7 +40,7 @@ export function initEnemyManager(scene) {
 export function spawnEnemy(scene, type, x, y) {
   const config = getEnemyConfig(type);
   if (!config) {
-    // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console — 略過主控台警告
     console.warn("[enemySystem] Unknown type:", type);
     return null;
   }
@@ -61,7 +62,7 @@ export function spawnEnemy(scene, type, x, y) {
   ensureEnemyPhysicsGroup(scene);
   scene.enemyPhysicsGroup.add(sprite);
 
-  // PhysicsGroup.add() can reset allowGravity — restore per kind.
+  // PhysicsGroup.add() 可能重置 allowGravity — 依種類還原。
   if (sprite.body) {
     if (config.kind === "flying") {
       sprite.body.setAllowGravity(false);

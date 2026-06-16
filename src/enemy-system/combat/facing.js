@@ -1,6 +1,7 @@
+/** 敵人朝向與面向判定 — 左右 flip 與攻擊中禁止轉向。 */
 import { ENEMY_STATE } from "../constants.js";
 
-/** @typedef {'right-art' | 'left-default'} FacingMode */
+/** @typedef {'right-art' | 'left-default'} FacingMode 朝向模式 */
 
 export function faceTowardPlayer(sprite, playerX, mode = "left-default") {
   const dx = playerX - sprite.x;

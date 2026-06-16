@@ -1,3 +1,4 @@
+/** 音速波投射物 — 蝙蝠等遠程敵人使用。 */
 import { launchToward, spawnOffsetAlongAngle } from "../combat/projectileLaunch.js";
 import { getNearestPlayer } from "../combat/targeting.js";
 import { createProjectile } from "../factories/createProjectile.js";
@@ -42,7 +43,7 @@ export function spawnSoundWave(scene, { fromSprite, target, speed: speedOpt } = 
   return s;
 }
 
-/** @param {number} speed */
+/** @param {number} speed 音速波速度 */
 export function setSoundWaveSpeed(scene, speed) {
   scene._lastSoundWaveSpeed = speed;
 }

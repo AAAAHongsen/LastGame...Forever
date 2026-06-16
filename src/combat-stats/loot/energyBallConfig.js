@@ -1,3 +1,4 @@
+/** 能量球拾取物的貼圖鍵與預設物理／拾取參數。 */
 export const ENERGY_BALL_TEXTURE = "energyball";
 
 export const ENERGY_BALL_DEFAULTS = Object.freeze({

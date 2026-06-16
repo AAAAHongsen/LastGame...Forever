@@ -1,8 +1,8 @@
 import { BASE_HEIGHT, BASE_WIDTH } from "../constants.js";
 
 /**
- * Registry-driven enemy definitions.
- * Add new enemies here — core systems should not need if-else branches.
+ * 由 registry 驅動的敵人定義。
+ * 在此新增敵人 — 核心系統不應需要 if-else 分支。
  */
 export const ENEMY_TYPES = {
   mushroom: {
@@ -28,7 +28,7 @@ export const ENEMY_TYPES = {
     },
     melee: {
       lungePx: 20,
-      /** Horizontal gap allowed before lunge (player can be this far; mushroom closes via lunge). */
+      /** 衝刺前允許的水平間距（玩家可在此距離；蘑菇以衝刺拉近）。 */
       engageSlack: 90,
       recovery: 1000,
     },
@@ -49,9 +49,9 @@ export const ENEMY_TYPES = {
     stats: {
       baseHp: 20,
       damage: 6,
-      /** Spot player (far). */
+      /** 發現玩家（遠）。 */
       detectRange: 400,
-      /** Keep chasing while player within this (mid). */
+      /** 玩家在此範圍內（中）持續追擊。 */
       chaseRange: 280,
       chaseSpeed: 85,
       detectRangeMode: "x",
@@ -59,7 +59,7 @@ export const ENEMY_TYPES = {
       cooldown: 2000,
     },
     melee: {
-      /** Hold ~20px body gap from player before attacking (not player origin). */
+      /** 攻擊前與玩家 body 保持約 20px 間距（非玩家原點）。 */
       standoffPx: 20,
       standoffTolerance: 8,
       attackSlack: 6,

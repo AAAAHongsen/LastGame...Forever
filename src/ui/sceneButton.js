@@ -1,8 +1,8 @@
 import { playButtonHoverSfx } from "../services/audioService.js";
 
 /**
- * World-space button: purple rect + label, hit box matches the rect exactly.
- * Uses a plain Rectangle (not Container/Zone) to avoid Phaser 3.90 input bugs.
+ * 世界座標按鈕：紫色矩形 + 標籤，點擊區與矩形完全一致。
+ * 使用 plain Rectangle（非 Container/Zone）以避開 Phaser 3.90 輸入 bug。
  */
 export function createSceneButton(scene, x, y, width, height, label, onClick) {
   const bg = scene.add.rectangle(x, y, width, height, 0x6b5163, 0.95);

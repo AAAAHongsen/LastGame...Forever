@@ -1,3 +1,4 @@
+/** 勝利暗角 + "YOU WIN" 文字覆蓋層。 */
 import { BASE_WIDTH, BASE_HEIGHT } from "../config/constants.js";
 
 export class WinScreen {
@@ -10,14 +11,14 @@ export class WinScreen {
   build() {
     const s = this.scene;
 
-    // Vignette mask that grows from edges inward
+    // 由邊緣向內擴張的暗角遮罩
     this._vignette = s.add.graphics();
     this._vignette.setDepth(900).setScrollFactor(0);
     this._vignette.fillStyle(0x000000, 1);
     this._vignette.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
     this._vignette.setAlpha(0);
 
-    // Animate vignette via timer to avoid tween lifecycle crash after scene teardown.
+    // 以計時器動畫暗角，避免場景拆解後 tween 生命週期崩潰。
     const start = s.time.now;
     const total = 3000;
     const timer = s.time.addEvent({
@@ -26,7 +27,7 @@ export class WinScreen {
       callback: () => {
         if (!this._vignette?.active) return;
         const t = Phaser.Math.Clamp((s.time.now - start) / total, 0, 1);
-        this._vignette.setAlpha(t * t); // ease-in style
+        this._vignette.setAlpha(t * t); // ease-in 風格
         if (t >= 1) {
           timer.remove(false);
           this._showText();

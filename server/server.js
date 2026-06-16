@@ -27,16 +27,16 @@ function generateRoomCode(existing) {
     for (let i = 0; i < 5; i += 1) code += String(randomInt(0, 9));
     if (!existing.has(code)) return code;
   }
-  // Fallback (extremely unlikely): time-based last 5 digits
+  // 備援（極少發生）：以時間戳最後 5 碼作為房號
   const fallback = String(Date.now()).slice(-5);
   return existing.has(fallback) ? "00000" : fallback;
 }
 
 /**
- * rooms: code -> {
- *   createdAt: number,
- *   players: Map<socketId, { playerNumber: 1|2, selectedSide: "left"|"right"|null, ready: boolean }>,
- *   countdown: { startAt: number, timeout: NodeJS.Timeout } | null
+ * rooms: 房號 -> {
+ *   createdAt: number,        // 建立時間戳
+ *   players: Map<socketId, { playerNumber: 1|2, selectedSide: "left"|"right"|null, ready: boolean }>,  // 連線玩家
+ *   countdown: { startAt: number, timeout: NodeJS.Timeout } | null  // 開局倒數，null 表示未倒數
  * }
  */
 const rooms = new Map();
@@ -109,7 +109,7 @@ function startCountdownIfNeeded(code) {
   if (!room || room.countdown) return;
   const startAt = Date.now() + 5000;
   const timeout = setTimeout(() => {
-    // If someone unreadied during the countdown, don't start.
+    // 倒數期間若有人取消準備，則不開始遊戲。
     const state = getRoomPublicState(code);
     const allReady = Boolean(state?.players?.[1]?.ready && state?.players?.[2]?.ready);
     if (!allReady) {
@@ -161,8 +161,8 @@ io.on("connection", (socket) => {
       removePlayerFromRoom(socket);
     }
 
-    // Allow single-player "test room" join with code "1".
-    // If it doesn't exist, create it as a real room so the rest of the flow works.
+    // 允許以房號 "1" 加入單人測試房。
+    // 若尚未存在則建立正式房間，使後續流程可正常運作。
     if (normalized === "1" && !rooms.has("00001")) {
       const room = {
         createdAt: Date.now(),
@@ -189,7 +189,7 @@ io.on("connection", (socket) => {
 
     pruneDisconnectedPlayers(room);
 
-    // Test room is single-client debug: new join replaces stale sessions (e.g. after refresh).
+    // 測試房為單客戶端除錯：新連線會取代舊 session（例如重新整理後）。
     if (normalized5 === "00001") {
       for (const socketId of [...room.players.keys()]) {
         const existing = io.sockets.sockets.get(socketId);
@@ -253,7 +253,7 @@ io.on("connection", (socket) => {
     else cancelCountdown(code);
   });
 
-  // Very low-latency LAN sync: each client publishes its own transform frequently.
+  // 低延遲區網同步：各客戶端頻繁發布自身 transform。
   socket.on("playerTransform", (payload) => {
     const code = socket.data.roomCode;
     if (!code) return;
@@ -262,8 +262,8 @@ io.on("connection", (socket) => {
     socket.to(code).emit("playerTransform", { playerNumber: pn, ...payload });
   });
 
-  // One-shot gameplay events (attacks / specials) must be synced separately
-  // from transform snapshots so effects spawn on both clients at the same time.
+  // 一次性 gameplay 事件（攻擊／技能）需與 transform 快照分開同步，
+  // 使雙方客戶端在同一時間生成特效。
   socket.on("playerAction", (payload) => {
     const code = socket.data.roomCode;
     if (!code) return;
@@ -272,7 +272,7 @@ io.on("connection", (socket) => {
     socket.to(code).emit("playerAction", { playerNumber: pn, ...payload });
   });
 
-  // HUD resources (energy/orbs) sync from action owner to partner.
+  // HUD 資源（能量／球）由動作擁有者同步給隊友。
   socket.on("playerResource", (payload) => {
     const code = socket.data.roomCode;
     if (!code) return;
@@ -281,7 +281,7 @@ io.on("connection", (socket) => {
     socket.to(code).emit("playerResource", { playerNumber: pn, ...payload });
   });
 
-  // GameOver restart handshake: both players must confirm restart.
+  // Game Over 重開握手：雙方玩家皆須確認重開。
   socket.on("gameOverRestartReady", () => {
     const code = socket.data.roomCode;
     if (!code) return;
@@ -299,8 +299,8 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ─── Wave sync events ────────────────────────────────────────────────
-  // Host (player1) sends these; server relays to the other client.
+  // ─── 波次同步事件 ────────────────────────────────────────────────────────
+  // 房主（player1）發送；伺服器轉發給另一位客戶端。
   const WAVE_RELAY_HOST_ONLY = [
     "waveState",
     "waveSpawn",
@@ -316,9 +316,9 @@ io.on("connection", (socket) => {
     socket.on(evt, (payload) => {
       const code = socket.data.roomCode;
       if (!code) return;
-      if (socket.data.playerNumber !== 1) return; // only host relays
+      if (socket.data.playerNumber !== 1) return; // 僅房主可轉發
       const room = rooms.get(code);
-      // Reset tutorial-ready state when a new tutorial wave starts.
+      // 新教學波開始時重置 tutorial-ready 狀態。
       if (evt === "waveState" && payload?.state === "tutorial" && Number.isFinite(payload?.wave)) {
         const w = Number(payload.wave);
         if (room) room.waveTutorialReady[w] = { 1: false, 2: false };
@@ -331,8 +331,16 @@ io.on("connection", (socket) => {
     });
   }
 
-  // waveLootCollected: either player notifies the other that a ball was collected.
-  // This lets the host suppress its duplicate grant for the same ball.
+  // waveStateRequest：客戶端（player2）向房主索取目前波次狀態。
+  socket.on("waveStateRequest", () => {
+    const code = socket.data.roomCode;
+    if (!code) return;
+    if (socket.data.playerNumber === 1) return;
+    socket.to(code).emit("waveStateRequest", { from: socket.data.playerNumber });
+  });
+
+  // waveLootCollected：任一方通知對方球體已被拾取。
+  // 使房主可略過同一顆球的重複發放。
   socket.on("waveLootCollected", (payload) => {
     const code = socket.data.roomCode;
     if (!code) return;
@@ -341,7 +349,7 @@ io.on("connection", (socket) => {
     socket.to(code).emit("waveLootCollected", { playerNumber: pn, ...payload });
   });
 
-  // waveTutorialReady: server stores status and broadcasts authoritative map.
+  // waveTutorialReady：伺服器儲存狀態並廣播權威 map。
   socket.on("waveTutorialReady", ({ wave } = {}) => {
     const code = socket.data.roomCode;
     if (!code) return;

@@ -1,3 +1,6 @@
+/**
+ * 主遊戲場景 — 玩家控制、波次、戰鬥、多人同步與 UI 覆蓋層。
+ */
 import { BASE_WIDTH, BASE_HEIGHT } from "../config/constants.js";
 import {
   createEnemyAnimations,
@@ -18,6 +21,25 @@ import {
   playWinSfx,
   preloadAudio,
 } from "../services/audioService.js";
+import {
+  getLocalPlayerIndex,
+  isHostScene,
+  isMultiplayerScene,
+} from "../services/multiplayerSession.js";
+import { getDefaultMaxHpForClass } from "../combat-stats/config/playerStats.js";
+import { PLATFORM_ZONES } from "../wave/spawnHelpers.js";
+import {
+  buildPlayerEntry,
+  classHudLabel,
+  createMageCharacter,
+  createPlayerAnimations,
+  createSoldierCharacter,
+  PLAYER_SPAWN_POINTS,
+  preloadGameBackgroundAssets,
+  preloadPlayerCharacterAssets,
+  selectionToPlayerType,
+} from "./playerSetup.js";
+import { setupMultiplayerPlayerSync } from "./gameSceneNetwork.js";
 import { HudUI } from "../ui/HudUI.js";
 import {
   initPlayerCombat,
@@ -31,6 +53,7 @@ import { PreWaveModal } from "../wave/PreWaveModal.js";
 import { WinScreen } from "../wave/WinScreen.js";
 import { updateAllBossHpBars } from "../enemy-system/ui/BossHpBar.js";
 
+/** 核心遊戲場景 — 玩家、波次、戰鬥與 HUD。 */
 export class GameScene extends Phaser.Scene {
   constructor() {
     super("GameScene");
@@ -60,105 +83,17 @@ export class GameScene extends Phaser.Scene {
 
   preload() {
     preloadAudio(this);
+
+    // ── 世界與角色 ────────────────────────────────────────────────
     preloadCombatLootAssets(this);
-
-    // Enemy assets must be available in both multiplayer and test room.
-    // Wave spawning/animations rely on these textures globally.
     preloadEnemyAssets(this);
-
-    this.load.image(
-      "bg-layer-1",
-      "Assets/Platform/GandalfHardcore-Platformer/GandalfHardcore FREE Platformer Assets/GandalfHardcore Background layers/Normal BG/GandalfHardcore Background layers_layer 1.png"
-    );
-    this.load.image(
-      "bg-layer-2",
-      "Assets/Platform/GandalfHardcore-Platformer/GandalfHardcore FREE Platformer Assets/GandalfHardcore Background layers/Normal BG/GandalfHardcore Background layers_layer 2.png"
-    );
-    this.load.image(
-      "bg-layer-3",
-      "Assets/Platform/GandalfHardcore-Platformer/GandalfHardcore FREE Platformer Assets/GandalfHardcore Background layers/Normal BG/GandalfHardcore Background layers_layer 3.png"
-    );
-    this.load.image(
-      "bg-layer-4",
-      "Assets/Platform/GandalfHardcore-Platformer/GandalfHardcore FREE Platformer Assets/GandalfHardcore Background layers/Normal BG/GandalfHardcore Background layers_layer 4.png"
-    );
-    this.load.image(
-      "bg-layer-5",
-      "Assets/Platform/GandalfHardcore-Platformer/GandalfHardcore FREE Platformer Assets/GandalfHardcore Background layers/Normal BG/GandalfHardcore Background layers_layer 5.png"
-    );
-    this.load.image(
-      "floor-tiles-1",
-      "Assets/Platform/GandalfHardcore-Platformer/GandalfHardcore FREE Platformer Assets/Floor Tiles1.png"
-    );
-    this.load.image(
-      "other-tiles-2",
-      "Assets/Platform/GandalfHardcore-Platformer/GandalfHardcore FREE Platformer Assets/Other Tiles2.png"
-    );
-    // this.load.image(
-    //   "player-soldier",
-    //   "Assets/character/solider-character/Soldier/solider-image.png"
-    // );
-    this.load.spritesheet(
-      "soldier-walk-sheet",
-      "Assets/character/solider-character/Soldier/Soldier-Walk.png",
-      {
-        frameWidth: 100,
-        frameHeight: 100,
-      }
-    );
-    this.load.spritesheet(
-      "soldier-attack01-sheet",
-      "Assets/character/solider-character/Soldier/Soldier-Attack01.png",
-      {
-        frameWidth: 100,
-        frameHeight: 100,
-      }
-    );
-    this.load.spritesheet(
-      "mage-run-sheet",
-      "Assets/character/Mage-character/Run/Run_script.png",
-      {
-        frameWidth: 32,
-        frameHeight: 32,
-      }
-    );
-    this.load.spritesheet(
-      "mage-attack-mighty-sheet",
-      "Assets/character/Mage-character/Attack/StaffMighty/AttackMighty_script.png",
-      {
-        frameWidth: 32,
-        frameHeight: 32,
-      }
-    );
-    this.load.spritesheet(
-      `mage-charge-mighty-sheet`,
-      `Assets/character/Mage-character/AttackCharge/StaffMighty/ChargeMighty.png`,
-      {
-        frameWidth: 32,
-        frameHeight: 32,
-      }
-    );
-
-    // Effects (spritesheets are laid out left-to-right in one row).
-    this.load.spritesheet("heal-green-sheet", "Assets/effects/heal/Heal-Green.png", {
-      frameWidth: 16, // 96 / 6
-      frameHeight: 32,
-    });
-    this.load.spritesheet("wild-sheet", "Assets/effects/wild/wild.png", {
-      frameWidth: 16, // 48 / 3
-      frameHeight: 32,
-    });
-    // Mage fireball frames (separate PNGs).
-    for (let i = 0; i <= 60; i += 1) {
-      this.load.image(`fireball-${i}`, `Assets/effects/fireball/1_${i}.png`);
-    }
-
-    // HUD is drawn (no textures).
+    preloadGameBackgroundAssets(this);
+    preloadPlayerCharacterAssets(this);
   }
 
   create() {
-    // Ensure socket exists before WaveManager construction.
-    const isMultiplayer = Boolean(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2));
+    // 在建立 WaveManager 前先確保 socket 存在。
+    const isMultiplayer = isMultiplayerScene(this);
     if (isMultiplayer) {
       this.socket = ensureSocket();
     }
@@ -170,13 +105,13 @@ export class GameScene extends Phaser.Scene {
     this.createPlatforms(this.platformBodies);
     this.createAnimations();
 
-    // Always initialise enemy system (not just test room)
+    // 一律初始化敵人系統（不限測試房）
     createEnemyAnimations(this);
     installEnemyDevTools(this);
 
     this.createPlayers();
 
-    // Rebuild combat overlaps after players exist
+    // 玩家建立後重建戰鬥 overlap
     if (typeof this.combatSystem?.rebuildPlayerOverlaps === "function") {
       this.combatSystem.rebuildPlayerOverlaps();
     }
@@ -213,7 +148,7 @@ export class GameScene extends Phaser.Scene {
 
     this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
 
-    // Wave system
+    // 波次系統
     this._tutorialDialog = null;
     this._preWaveModal   = null;
     this._winScreen      = null;
@@ -233,14 +168,14 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ── Wave UI hooks (called by WaveManager) ────────────────────────────
+  // ── 波次 UI 掛鉤（由 WaveManager 呼叫）────────────────────────────
 
   showTutorial(onLocalDone) {
     this.waveManager?.freeze();
     this._tutorialDialog?.destroy?.();
     this._tutorialDialog = new TutorialDialog(this, {
       onLocalDone: () => {
-        // Don't destroy yet — may need to show "waiting" state
+        // 先不銷毀 — 可能還要顯示「等待中」狀態
         onLocalDone?.();
       },
     });
@@ -274,21 +209,21 @@ export class GameScene extends Phaser.Scene {
   showWinScreen() {
     this.waveManager?.freeze();
     this._winScreen?.destroy?.();
-    playWinSfx(this);
+    playWinSfx(this); // 暫停 BGM，播放勝利音效
     this._winScreen = new WinScreen(this);
   }
 
   createHud() {
     this.hud = new HudUI(this);
 
-    // Player1 should be left; Player2 right.
+    // Player1 在左、Player2 在右。
     const p1Type = this.players?.[0]?.type ?? "soldier";
     const p2Type = this.players?.[1]?.type ?? "mage";
-    const labelForType = (t) => (t === "mage" ? "Mage" : "Warrior");
+    const labelForType = classHudLabel;
     this.hud.setNames({ player1Name: labelForType(p1Type), player2Name: labelForType(p2Type) });
 
-    // Start at wave-1 defaults; WaveManager will overwrite via _applyPlayerStats
-    const hpForType = (t) => (t === "mage" ? 70 : 100);
+    // 以第 1 波預設值開始；WaveManager 會透過 _applyPlayerStats 覆寫
+    const hpForType = getDefaultMaxHpForClass;
     this.hud.setWave(1);
     this.hud.setHealthMax(1, hpForType(p1Type));
     this.hud.setHealthMax(2, hpForType(p2Type));
@@ -320,17 +255,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   update() {
-    // Tutorial and pre-wave modal need their own update even when frozen
+    // 教學與波前視窗在凍結時仍需各自 update
     if (this._tutorialDialog) {
       this._tutorialDialog.update();
     }
 
-    // Boss HP bars always update (so they're visible even when game is frozen/paused)
+    // Boss 血條一律更新（凍結／暫停時仍要顯示）
     updateAllBossHpBars(this);
 
     if (this._gameOverFrozen || isSettingsOpen(this)) return;
 
-    // Wave manager ticks (host-only checks inside)
+    // 波次管理器 tick（內部僅房主執行）
     this.waveManager?.update();
 
     checkAndOpenGameOver(this);
@@ -339,15 +274,15 @@ export class GameScene extends Phaser.Scene {
       openSettingsOverlay(this, "GameScene");
     }
 
-    // Keep visual sprites glued to their physics bodies.
+    // 視覺 sprite 緊貼物理 body。
     for (const entry of this.players ?? []) {
       if (!entry?.sprite || !entry?.visual) continue;
       entry.visual.x = entry.sprite.x;
       entry.visual.y = entry.sprite.y;
     }
 
-    // Test-room only: allow TAB swapping.
-    const isMultiplayer = Boolean(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2));
+    // 僅測試房：允許 TAB 切換控制角色。
+    const isMultiplayer = isMultiplayerScene(this);
     if (this.isTestRoom && !isMultiplayer && this.players.length > 1 && Phaser.Input.Keyboard.JustDown(this.tabKey)) {
       this.switchControlledPlayer();
     }
@@ -371,7 +306,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Projectile cleanup.
+    // 投射物清理。
     for (const fb of this.fireballs?.getChildren?.() ?? []) {
       if (!fb) continue;
       if (fb.x < -80 || fb.x > BASE_WIDTH + 80) {
@@ -379,7 +314,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Wild effect: follow owner and auto-stop when buff ends.
+    // 狂暴特效：跟隨擁有者，增益結束時自動停止。
     if (this.wildEffect && this.wildEffectOwner) {
       this.wildEffect.x = this.wildEffectOwner.x;
       this.wildEffect.y = this.wildEffectOwner.y;
@@ -406,15 +341,14 @@ export class GameScene extends Phaser.Scene {
     return Number(this.time?.now ?? 0) < Number(this.playersInvincibleUntil ?? 0);
   }
 
-  /** True for single/test room, or for the host (player1) in multiplayer. */
+  /** 單人／測試房，或多人中的房主（player1）時為 true。 */
   _isHostAuthority() {
-    const mp = Boolean(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2));
-    return !mp || this.playerNumber === 1;
+    return isHostScene(this);
   }
 
   /**
-   * Apply the mage heal authoritatively and push the new HP to the client.
-   * Mirrors damage.js so the heal isn't reverted by the next damage SYNC_HP.
+   * 以房主權威套用法師治療，並將新 HP 推送到客戶端。
+   * 與 damage.js 對齊，避免下次 SYNC_HP 把治療還原。
    */
   _applyMageHealAndSync() {
     const healPct = this._waveMageHealBonus > 0 ? this._waveMageHealBonus : 0.10;
@@ -428,7 +362,7 @@ export class GameScene extends Phaser.Scene {
   _tryConsumeEnergy(amount, forceConsume = false) {
     if (amount <= 0) return true;
     if (!forceConsume && this._isEnergyFree()) return true;
-    // Wave special rule: only warrior attacks can bypass energy consumption.
+    // 波次特殊規則：僅戰士攻擊可免消耗能量。
     if (!forceConsume && this._waveWarriorNoCost) {
       const entry = this.getControlledEntry();
       if (entry?.type === "soldier") return true;
@@ -461,7 +395,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Heal both players by a fraction of their individual max HP. */
+  /** 依各自最大 HP 比例治療雙方玩家。 */
   _healBothPercent(pct) {
     const p = Math.max(0, Number(pct) || 0);
     for (const roleKey of ["p1", "p2"]) {
@@ -534,17 +468,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   createPlatformTexture() {
-    // Crop a green platform strip from Floor Tiles1 spritesheet.
+    // 從 Floor Tiles1 圖集裁切綠色平台條。
     const source = this.textures.get("floor-tiles-1").getSourceImage();
     const platformTexture = this.textures.createCanvas("platform-strip", 96, 24);
     const pctx = platformTexture.context;
     pctx.imageSmoothingEnabled = false;
     pctx.clearRect(0, 0, 96, 24);
-    // Floating platforms keep original look.
+    // 浮空平台維持原樣。
     pctx.drawImage(source, 0, 0, 96, 24, 0, 0, 96, 24);
     platformTexture.refresh();
 
-    // Ground uses a center strip (without side edges) to avoid visible seams.
+    // 地面使用中間條（不含側邊），避免接縫可見。
     const groundTexture = this.textures.createCanvas("ground-strip", 32, 30);
     const gctx = groundTexture.context;
     gctx.imageSmoothingEnabled = false;
@@ -553,7 +487,7 @@ export class GameScene extends Phaser.Scene {
     gctx.drawImage(source, 32, 17, 32, 1, 0, 18, 32, 12);
     groundTexture.refresh();
 
-    // Tiny helper texture for static physics bodies.
+    // 靜態物理 body 用的小型輔助貼圖。
     const bodyTex = this.textures.createCanvas("platform-body", 4, 4);
     const bodyCtx = bodyTex.context;
     bodyCtx.clearRect(0, 0, 4, 4);
@@ -580,10 +514,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   createPlatforms(bodies) {
-    this.createPlatformPiece(bodies, 180, 420, 200, 30);
-    this.createPlatformPiece(bodies, 470, 300, 250, 30);
-    this.createPlatformPiece(bodies, 730, 430, 190, 30);
-    this.createPlatformPiece(bodies, 930, 250, 220, 30);
+    for (const platform of PLATFORM_ZONES) {
+      this.createPlatformPiece(bodies, platform.x, platform.y, platform.w, platform.h);
+    }
   }
 
   createPlatformPiece(bodies, x, y, width, height) {
@@ -603,79 +536,32 @@ export class GameScene extends Phaser.Scene {
     this.players = [];
     this.activePlayerIndex = 0;
 
-    const isMultiplayer = Boolean(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2));
+    const isMultiplayer = isMultiplayerScene(this);
     const selections = this.selections;
 
-    const selectionToType = (sel) => (sel === "right" ? "mage" : "soldier");
-    const p1Type = selections?.[1] ? selectionToType(selections[1]) : "soldier";
-    const p2Type = selections?.[2] ? selectionToType(selections[2]) : "mage";
-    const spawn1 = { x: 120, y: -80 };
-    const spawn2 = { x: 220, y: -120 };
+    const p1Type = selections?.[1] ? selectionToPlayerType(selections[1]) : "soldier";
+    const p2Type = selections?.[2] ? selectionToPlayerType(selections[2]) : "mage";
+    const [spawn1, spawn2] = PLAYER_SPAWN_POINTS;
 
-    const createSoldier = (x, y) => {
-      const soldier = this.physics.add.sprite(x, y, "soldier-walk-sheet", 0);
-      soldier.setScale(2);
-      soldier.setCollideWorldBounds(true);
-      // Keep players above enemies/effects by default.
-      soldier.setDepth(40);
-      soldier.body.setSize(7, 18, true);
-      soldier.body.setOffset(46, 39);
-      soldier.setBounce(0.02);
-      soldier.anims.play("soldier-idle");
-      this.physics.add.collider(soldier, this.platformBodies);
-      return { body: soldier, visual: soldier };
-    };
+    const createForType = (type, x, y) =>
+      type === "mage"
+        ? createMageCharacter(this, x, y, this.platformBodies)
+        : createSoldierCharacter(this, x, y, this.platformBodies);
 
-    const createMage = (x, y) => {
-      // Physics body is decoupled from animation frame sizes to prevent platform tunneling.
-      const body = this.physics.add.sprite(x, y, "platform-body");
-      body.setAlpha(0.001);
-      // Give Arcade body a stable size reference for offsets.
-      body.setDisplaySize(8, 8);
-      body.setOrigin(0.5, 1);
-      body.setCollideWorldBounds(true);
-      body.setDepth(40);
-      body.body.setSize(7, 15, true);
-      // Shift hitbox upward a bit so sprite doesn't look like it's floating.
-      body.body.setOffset(-2, -11);
-      body.setBounce(0.02);
-      this.physics.add.collider(body, this.platformBodies);
-
-      const visual = this.add.sprite(x, y, "mage-run-sheet", 2);
-      visual.setScale(2.3);
-      visual.setOrigin(0.5, 1);
-      visual.setDepth(41);
-      visual.anims.play("mage-run-idle");
-      return { body, visual };
-    };
-
-    const p1 = p1Type === "mage" ? createMage(spawn1.x, spawn1.y) : createSoldier(spawn1.x, spawn1.y);
-    this.players.push({
-      sprite: p1.body,
-      visual: p1.visual,
-      type: p1Type,
-      isAttacking: false,
-      gravityLocked: false,
-    });
+    const p1 = createForType(p1Type, spawn1.x, spawn1.y);
+    this.players.push(buildPlayerEntry(p1, p1Type));
 
     const shouldCreateP2 = isMultiplayer || this.isTestRoom;
     if (shouldCreateP2) {
-      const p2 = p2Type === "mage" ? createMage(spawn2.x, spawn2.y) : createSoldier(spawn2.x, spawn2.y);
-      this.players.push({
-        sprite: p2.body,
-        visual: p2.visual,
-        type: p2Type,
-        isAttacking: false,
-        gravityLocked: false,
-      });
+      const p2 = createForType(p2Type, spawn2.x, spawn2.y);
+      this.players.push(buildPlayerEntry(p2, p2Type));
     }
 
-    // Local control: in multiplayer, control your own playerNumber; otherwise player 1.
-    const localIndex = isMultiplayer ? (this.playerNumber === 2 ? 1 : 0) : 0;
+    const localIndex = getLocalPlayerIndex(this);
     this.activePlayerIndex = localIndex;
     this.playerController = new PlayerController(this, this.players[localIndex].sprite);
 
-    // Remote entry handle (if exists)
+    // 遠端玩家 entry 參考（若存在）
     if (isMultiplayer && this.players.length > 1) {
       this.remoteEntry = this.players[localIndex === 0 ? 1 : 0];
     } else {
@@ -706,75 +592,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   setupNetworkSync() {
-    const isMultiplayer = Boolean(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2));
-    if (!isMultiplayer) return;
-
-    const socket = ensureSocket();
-    this.socket = socket;
-
-    this.remoteTarget = null;
-    this.remoteLerp = 0.35;
-
-    const onTransform = (msg) => {
-      if (!msg || typeof msg !== "object") return;
-      // Ignore if somehow received our own state.
-      if (msg.playerNumber === this.playerNumber) return;
-      if (!this.remoteEntry) return;
-      this.remoteTarget = {
-        x: Number(msg.x ?? this.remoteEntry.sprite.x),
-        y: Number(msg.y ?? this.remoteEntry.sprite.y),
-        vx: Number(msg.vx ?? 0),
-        vy: Number(msg.vy ?? 0),
-        flipX: Boolean(msg.flipX),
-        animKey: typeof msg.animKey === "string" ? msg.animKey : null,
-      };
-    };
-
-    const onPlayerAction = (msg) => {
-      this.handleRemotePlayerAction(msg);
-    };
-    const onPlayerResource = (msg) => {
-      this.handleRemotePlayerResource(msg);
-    };
-    const onLootCollected = (msg) => {
-      this.handleRemoteLootCollected(msg);
-    };
-
-    socket.on("playerTransform", onTransform);
-    socket.on("playerAction", onPlayerAction);
-    socket.on("playerResource", onPlayerResource);
-    socket.on("waveLootCollected", onLootCollected);
-
-    // Publish local transform at a high frequency for LAN smoothness.
-    this.transformTimer = this.time.addEvent({
-      delay: 50,
-      loop: true,
-      callback: () => {
-        const entry = this.getControlledEntry();
-        const s = entry?.sprite;
-        const v = entry?.visual ?? entry?.sprite;
-        if (!s || !s.body) return;
-        const animKey = v.anims?.currentAnim?.key ?? null;
-        socket.emit("playerTransform", {
-          x: s.x,
-          y: s.y,
-          vx: s.body.velocity.x,
-          vy: s.body.velocity.y,
-          flipX: Boolean(v.flipX),
-          animKey,
-        });
-      },
-    });
-
-    this.events.once("shutdown", () => {
-      socket.off("playerTransform", onTransform);
-      socket.off("playerAction", onPlayerAction);
-      socket.off("playerResource", onPlayerResource);
-      if (this.transformTimer) {
-        this.transformTimer.remove(false);
-        this.transformTimer = null;
-      }
-    });
+    setupMultiplayerPlayerSync(this);
   }
 
   updateActiveControlText() {
@@ -791,7 +609,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   emitPlayerAction(action, payload = {}) {
-    if (!this.socket || !(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2))) return;
+    if (!this.socket || !isMultiplayerScene(this)) return;
     this.socket.emit("playerAction", {
       action,
       t: this.time?.now ?? 0,
@@ -800,7 +618,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   emitPlayerResource(payload = {}) {
-    if (!this.socket || !(this.roomCode && (this.playerNumber === 1 || this.playerNumber === 2))) return;
+    if (!this.socket || !isMultiplayerScene(this)) return;
     this.socket.emit("playerResource", {
       t: this.time?.now ?? 0,
       ...payload,
@@ -836,22 +654,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Partner already collected a loot ball — mark the local copy as collected
-   * so this side doesn't double-grant orbs when its own ball is picked up.
-   * Also applies the partner's orb update to keep HUD in sync.
+   * 夥伴已拾取戰利品球 — 標記本機副本為已收集，
+   * 避免本側再拾取時重複發放寶珠。
+   * 同時套用夥伴的寶珠更新以保持 HUD 同步。
    */
   handleRemoteLootCollected(msg) {
     if (!msg || msg.playerNumber === this.playerNumber) return;
 
     const { lootId } = msg;
 
-    // Mark the matching ball entity as collected so collectEnergyBall skips it.
+    // 標記對應球體實體為已收集，collectEnergyBall 會略過。
     const pickups = this.lootManager?.pickups ?? [];
     for (const entity of pickups) {
       if (entity._lootId != null && entity._lootId === lootId) {
         entity.collected = true;
         entity.collecting = true;
-        // Fade and destroy the visual so it doesn't float there forever.
+        // 淡出並銷毀視覺，避免一直浮在場上。
         const ball = entity.sprite;
         if (ball?.active) {
           this.tweens?.add?.({
@@ -867,13 +685,18 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** 依網路 action 載荷鏡像遠端玩家朝向。 */
+  _applyRemoteFlip(entry, msg) {
+    if (typeof msg.flipX === "boolean") {
+      entry.visual.setFlipX(msg.flipX);
+    }
+  }
+
   playRemoteAttack(msg) {
     const entry = this.remoteEntry;
     if (!entry?.visual) return;
 
-    if (typeof msg.flipX === "boolean") {
-      entry.visual.setFlipX(msg.flipX);
-    }
+    this._applyRemoteFlip(entry, msg);
 
     if (entry.type === "mage") {
       entry.visual.anims?.play("mage-attack-mighty", true);
@@ -886,8 +709,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (entry.type === "soldier") {
-      // Let host apply remote soldier melee damage via combat pipeline.
-      // On client this is harmless because damageEnemyEntry is host-authoritative.
+      // 由房主透過戰鬥管線處理遠端戰士近戰傷害。
+      // 客戶端無害，因 damageEnemyEntry 以房主為權威。
       entry.isAttacking = true;
       playWarriorAtkSfx(this);
       entry.visual.anims?.play("soldier-attack01", true);
@@ -903,15 +726,13 @@ export class GameScene extends Phaser.Scene {
     const entry = this.remoteEntry;
     if (!entry?.visual) return;
 
-    if (typeof msg.flipX === "boolean") {
-      entry.visual.setFlipX(msg.flipX);
-    }
+    this._applyRemoteFlip(entry, msg);
 
     if (entry.type === "mage") {
       this._playHealEffectsForPlayers();
       playMageSkillSfx(this);
-      // The remote (client) mage healed — if we're the host, apply & sync the HP
-      // authoritatively so it sticks and propagates back to the client.
+      // 遠端（客戶端）法師已治療 — 若本機是房主，權威套用並同步 HP，
+      // 使其生效並回傳給客戶端。
       if (this._isHostAuthority()) this._applyMageHealAndSync();
       entry.visual.anims?.play("mage-charge-mighty", true);
       entry.visual.once("animationcomplete-mage-charge-mighty", () => {
@@ -921,104 +742,25 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (entry.type === "soldier") {
-      // Mirror the buff timer so the update loop doesn't immediately destroy the wild effect.
+      // 鏡像增益計時，避免 update 迴圈立刻銷毀狂暴特效。
       const now = Number(this.time?.now ?? 0);
       this.energyNoCostUntil = now + 5000;
       playWarriorSkillSfx(this);
-      // Mirror invincibility so the host (damage authority) skips player damage.
+      // 鏡像無敵，使房主（傷害權威）略過對玩家的傷害。
       if (this._waveWarriorSkillInvincible) this.playersInvincibleUntil = now + 5000;
       this._startWildEffect(entry);
     }
   }
 
   createAnimations() {
-    if (!this.anims.exists("soldier-idle")) {
-      this.anims.create({
-        key: "soldier-idle",
-        frames: [{ key: "soldier-walk-sheet", frame: 0 }],
-        frameRate: 1,
-        repeat: -1,
-      });
-    }
-
-    if (!this.anims.exists("soldier-walk")) {
-      this.anims.create({
-        key: "soldier-walk",
-        frames: this.anims.generateFrameNumbers("soldier-walk-sheet", { start: 0, end: 7 }),
-        frameRate: 10,
-        repeat: -1,
-      });
-    }
-
-    if (!this.anims.exists("soldier-attack01")) {
-      this.anims.create({
-        key: "soldier-attack01",
-        frames: this.anims.generateFrameNumbers("soldier-attack01-sheet", { start: 0, end: 5 }),
-        frameRate: 12,
-        repeat: 0,
-      });
-    }
-
-    if (!this.anims.exists("mage-run")) {
-      this.anims.create({
-        key: "mage-run",
-        frames: this.anims.generateFrameNumbers("mage-run-sheet", { start: 0, end: 5 }),
-        frameRate: 10,
-        repeat: -1,
-      });
-    }
-
-    if (!this.anims.exists("mage-run-idle")) {
-      this.anims.create({
-        key: "mage-run-idle",
-        frames: [{ key: "mage-run-sheet", frame: 2 }],
-        frameRate: 1,
-        repeat: -1,
-      });
-    }
-
-    if (!this.anims.exists("mage-attack-mighty")) {
-      this.anims.create({
-        key: "mage-attack-mighty",
-        frames: this.anims.generateFrameNumbers("mage-attack-mighty-sheet", { start: 0, end: 5 }),
-        frameRate: 12,
-        repeat: 0,
-      });
-    }
-
-    if (!this.anims.exists("mage-charge-mighty")) {
-      this.anims.create({
-        key: "mage-charge-mighty",
-        frames: this.anims.generateFrameNumbers("mage-charge-mighty-sheet", { start: 0, end: 5 }),
-        frameRate: 12,
-        repeat: 0,
-      });
-    }
-
-    if (!this.anims.exists("heal-green")) {
-      this.anims.create({
-        key: "heal-green",
-        frames: this.anims.generateFrameNumbers("heal-green-sheet", { start: 0, end: 5 }),
-        frameRate: 12,
-        repeat: 0,
-      });
-    }
-
-    if (!this.anims.exists("wild-rage")) {
-      this.anims.create({
-        key: "wild-rage",
-        frames: this.anims.generateFrameNumbers("wild-sheet", { start: 0, end: 2 }),
-        frameRate: 10,
-        repeat: -1,
-      });
-    }
+    createPlayerAnimations(this);
   }
 
   tryPlayerAttack() {
     const entry = this.getControlledEntry();
     if (!entry || entry.isAttacking) return;
     if (entry.type === "mage") {
-      // Energy cost: mage LMB -5
+      // 能量消耗：法師左鍵 -5
       if (!this._tryConsumeEnergy(5)) return;
       entry.isAttacking = true;
       entry.sprite.setVelocityX(0);
@@ -1058,7 +800,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (entry.type !== "soldier") return;
 
-    // Energy cost: soldier LMB -2
+    // 能量消耗：戰士左鍵 -2
     if (!this._tryConsumeEnergy(2)) return;
     entry.isAttacking = true;
     entry.sprite.setVelocityX(0);
@@ -1083,12 +825,11 @@ export class GameScene extends Phaser.Scene {
     if (!roleKey) return;
 
     if (entry.type === "mage") {
-      // RMB: consume 3 orbs, heal both. Wave 4+ may use % heal.
+      // 右鍵：消耗 3 顆寶珠，治療雙方。第 4 波起可能改為百分比治療。
       if (!this._tryConsumeOrbs(roleKey, 3)) return;
-      // Heal is host-authoritative: only the host mutates HP, then syncs it.
-      // If the client healed locally, the next damage SYNC_HP would revert it.
-      // When the local player is the client, the host applies the heal upon
-      // receiving this "special" action (see playRemoteSpecial).
+      // 治療以房主為權威：僅房主修改 HP 後同步。
+      // 若客戶端本地治療，下次 damage SYNC_HP 會還原。
+      // 本機玩家是客戶端時，房主在收到此 "special" action 時套用治療（見 playRemoteSpecial）。
       if (this._isHostAuthority()) this._applyMageHealAndSync();
       this._playHealEffectsForPlayers();
       playMageSkillSfx(this);
@@ -1109,11 +850,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (entry.type === "soldier") {
-      // RMB: consume 3 orbs, 5 seconds no energy consumption for both players.
+      // 右鍵：消耗 3 顆寶珠，雙方 5 秒內攻擊不耗能量。
       if (!this._tryConsumeOrbs(roleKey, 3)) return;
       const now = Number(this.time?.now ?? 0);
       this.energyNoCostUntil = now + 5000;
-      // Wave 4: warrior ULT also makes both players invincible for its duration.
+      // 第 4 波：戰士大招期間雙方無敵。
       if (this._waveWarriorSkillInvincible) this.playersInvincibleUntil = now + 5000;
       playWarriorSkillSfx(this);
       this._startWildEffect(entry);

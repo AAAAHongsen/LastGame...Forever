@@ -1,3 +1,4 @@
+/** 全螢幕 Game Over UI，含 End／Restart 操作。 */
 import { BASE_WIDTH, BASE_HEIGHT } from "../config/constants.js";
 import { createSceneButton } from "./sceneButton.js";
 
@@ -82,7 +83,7 @@ export class GameOverModal {
     try {
       this.scene.input?.setTopOnly?.(false);
     } catch {
-      /* ignore */
+      /* 略過 */
     }
     setTimeout(run, 50);
   }
@@ -104,14 +105,14 @@ export class GameOverModal {
     this._waiting = true;
     this._transitioning = false;
     this.messageText?.setText?.("Waiting for your partner to restart...");
-    // Keep overlay top-most and disable restart button to prevent duplicate emits.
+    // 覆蓋層置頂並停用重開按鈕，避免重複 emit。
     this.restartBtn?.bg?.disableInteractive?.();
     this.restartBtn?.bg?.setFillStyle?.(0x4c3a48, 0.95);
     this.restartBtn?.text?.setColor?.("#c7b89e");
     try {
       this.scene.input?.setTopOnly?.(true);
     } catch {
-      /* ignore */
+      /* 略過 */
     }
   }
 
@@ -119,7 +120,7 @@ export class GameOverModal {
     try {
       this.scene.input?.setTopOnly?.(false);
     } catch {
-      /* ignore */
+      /* 略過 */
     }
     this.container?.destroy?.(true);
     this.container = null;

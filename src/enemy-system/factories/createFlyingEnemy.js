@@ -1,8 +1,8 @@
 /**
- * @param {Phaser.Scene} scene
- * @param {object} config
- * @param {number} x
- * @param {number} y
+ * @param {Phaser.Scene} scene 場景
+ * @param {object} config 敵人設定
+ * @param {number} x X 座標
+ * @param {number} y Y 座標
  */
 export function createFlyingEnemy(scene, config, x, y) {
   const s = scene.physics.add.sprite(x, y, config.texture, 0);

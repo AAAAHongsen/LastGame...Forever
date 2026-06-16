@@ -1,13 +1,13 @@
 import { playDamageFlash, getEnemyFlashTarget } from "./damageFlash.js";
 import { beginEnemyDeathSequence } from "./enemyDeath.js";
+import { isHostScene, isMultiplayerScene } from "../services/multiplayerSession.js";
 
 /**
- * Apply damage to an enemy entry (HP tracked on enemy object, not in AI).
+ * 對敵人 entry 造成傷害（HP 在敵人物件上，非 AI）。
+ * 多人模式以房主為權威。
  */
 export function damageEnemyEntry(scene, enemy, amount, source = {}) {
-  // Multiplayer authority: only host (player1) applies enemy HP changes.
-  const isMultiplayer = Boolean(scene?.roomCode && (scene?.playerNumber === 1 || scene?.playerNumber === 2));
-  if (isMultiplayer && scene?.playerNumber !== 1) return false;
+  if (isMultiplayerScene(scene) && !isHostScene(scene)) return false;
 
   if (!enemy || enemy.dead || enemy.dying || !enemy.sprite?.active) return false;
 
@@ -25,7 +25,7 @@ export function damageEnemyEntry(scene, enemy, amount, source = {}) {
   return true;
 }
 
-/** Starts shake → fade death sequence (async despawn). */
+/** 開始震動 → 淡出死亡序列（非同步 despawn）。 */
 export function killEnemyEntry(scene, enemy, source = {}) {
   if (!enemy || enemy.dying) return;
   beginEnemyDeathSequence(scene, enemy, source);

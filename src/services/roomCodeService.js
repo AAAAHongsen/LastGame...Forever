@@ -1,3 +1,4 @@
+/** 建立／加入流程中的使用中房間代碼追蹤。 */
 import { TEST_ROOM_CODE } from "../config/constants.js";
 
 let activeRoomCode = "";

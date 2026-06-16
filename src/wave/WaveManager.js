@@ -1,5 +1,8 @@
+/**
+ * 波次生命週期 — 生成、教學、Boss 召喚、勝利與多人同步。
+ */
 import { getWaveConfig, TOTAL_WAVES } from "./waveConfig.js";
-import { getSafeSpawnPoints } from "./spawnHelpers.js";
+import { getSafeSpawnPoints, FLYING_ENEMY_TYPES } from "./spawnHelpers.js";
 import { spawnEnemy } from "../enemy-system/systems/enemyManager.js";
 import {
   WAVE_EVENTS,
@@ -11,32 +14,25 @@ import {
 } from "./waveSync.js";
 import { spawnEnergyBallBurst } from "../combat-stats/loot/energyBall.js";
 import { createBossHpBar, destroyBossHpBar } from "../enemy-system/ui/BossHpBar.js";
-import { playEnemyDeadSfx } from "../services/audioService.js";
-
-const FLYING_TYPES = new Set(["bat", "flyBoss"]);
-
-/**
- * Determine if this client drives wave logic (host).
- * player1 or single/test room are host.
- */
-function isHost(scene) {
-  const mp = Boolean(scene.roomCode && (scene.playerNumber === 1 || scene.playerNumber === 2));
-  if (!mp) return true;
-  return scene.playerNumber === 1;
-}
+import { playNetworkClientDeathFx } from "../combat-stats/enemyDeath.js";
+import {
+  isHostScene,
+  playerKeyFromIndex,
+  roleKeyFromIndex,
+} from "../services/multiplayerSession.js";
 
 /**
- * Central wave state manager.
- * Attach to scene as scene.waveManager.
+ * 中央波次狀態管理器。
+ * 掛載於 scene.waveManager。
  */
 export class WaveManager {
   constructor(scene) {
     this.scene = scene;
-    this._host = isHost(scene);
+    this._host = isHostScene(scene);
     this.currentWave = 0;
-    this.state = "idle"; // idle | tutorial | preModal | playing | waveClear | win
-    this.spawnedEnemies = [];      // entries spawned in this wave
-    this.bossSummonFired = {};     // tag → true
+    this.state = "idle"; // 狀態：idle | tutorial | preModal | playing | waveClear | win
+    this.spawnedEnemies = [];      // 本波已生成的敵人 entry
+    this.bossSummonFired = {};     // tag → 已觸發
     this._checkCooldown = 0;
     this._boundSocket = false;
     this._frozenForUi = false;
@@ -44,7 +40,7 @@ export class WaveManager {
     this._tutorialReadyHeartbeat = null;
     this._tutorialLocalDone = false;
 
-    // Always listen for tutorial ready in multiplayer; gate by state === "tutorial".
+    // 多人模式一律監聽教學就緒；僅在 state === "tutorial" 時處理。
     if (this.scene.socket) {
       this._onTutorialStatus = (msg) => {
         if (!msg || this.state !== "tutorial") return;
@@ -58,8 +54,8 @@ export class WaveManager {
           const cfg = getWaveConfig(this.currentWave);
           if (cfg) this._tryBeginAfterTutorial(cfg);
         } else {
-          // Client waits for host to switch state to "playing".
-          // Keep waiting UI visible while not both ready.
+          // 客戶端等待房主將狀態切換為 "playing"。
+          // 雙方未就緒時持續顯示等待 UI。
           if (this._tutorialLocalDone && !(hostReady && clientReady)) {
             this.scene._tutorialDialog?.showWaiting?.();
           }
@@ -73,11 +69,11 @@ export class WaveManager {
     }
   }
 
-  // ─── public API ──────────────────────────────────────────────────────
+  // ─── 公開 API ──────────────────────────────────────────────────────
 
-  /** Called once to kick off wave 1 (after tutorial if needed). */
+  /** 啟動第 1 波（教學完成後若需要）。 */
   start() {
-    // Host: listen for enemy:killed to sync deaths to client
+    // 房主：監聽 enemy:killed 以同步死亡至客戶端
     if (this._host) {
       this._onEnemyKilled = (data) => {
         const enemy = data?.enemy;
@@ -93,26 +89,38 @@ export class WaveManager {
         this.scene.events.off("enemy:killed", this._onEnemyKilled);
       });
 
+      if (this.scene.socket) {
+        this._onStateRequest = () => this._emitCurrentStateSync();
+        this.scene.socket.on(WAVE_EVENTS.STATE_REQUEST, this._onStateRequest);
+        this.scene.events.once("shutdown", () => {
+          this.scene.socket?.off(WAVE_EVENTS.STATE_REQUEST, this._onStateRequest);
+          this._onStateRequest = null;
+        });
+      }
+
       this._advanceToWave(1);
+    } else {
+      // 客戶端可能晚於房主進入（例如較晚看完開場），需向房主索取目前波次。
+      this._requestWaveStateSync();
     }
   }
 
-  /** Freeze AI & player controls (tutorial / pre-wave modal). */
+  /** 凍結 AI 與玩家控制（教學／波前視窗）。 */
   freeze() {
     this._frozenForUi = true;
     this.scene._gameOverFrozen = true;
   }
 
-  /** Unfreeze and allow gameplay. */
+  /** 解除凍結，恢復遊玩。 */
   unfreeze() {
     this._frozenForUi = false;
     this.scene._gameOverFrozen = false;
   }
 
-  /** True when players/enemies should not move (UI overlay up). */
+  /** UI 覆蓋層顯示時，玩家／敵人不應移動。 */
   get frozen() { return this._frozenForUi; }
 
-  /** Called every update frame (only if not frozen). */
+  /** 每幀 update 呼叫（未凍結時）。 */
   update() {
     if (!this._host) return;
     if (this.state !== "playing") return;
@@ -125,7 +133,7 @@ export class WaveManager {
     this._checkWaveComplete();
   }
 
-  /** Sync an enemy damage event to client and apply. */
+  /** 將敵人受傷事件同步至客戶端並套用。 */
   notifyEnemyDamaged(enemy) {
     if (!this._host) return;
     const socket = this.scene.socket;
@@ -138,7 +146,7 @@ export class WaveManager {
     }
   }
 
-  /** Sync an enemy death to client. */
+  /** 將敵人死亡同步至客戶端。 */
   notifyEnemyDied(enemy) {
     if (!this._host) return;
     const socket = this.scene.socket;
@@ -147,7 +155,7 @@ export class WaveManager {
     }
   }
 
-  /** Sync player HP to client after taking damage. */
+  /** 受傷後將玩家 HP 同步至客戶端。 */
   syncPlayerHp() {
     if (!this._host) return;
     const hud = this.scene.hud;
@@ -161,11 +169,16 @@ export class WaveManager {
 
   destroy() {
     this._stopTutorialReadyHeartbeat();
+    this._stopStateSyncRetry();
     if (this._onTutorialStatus) {
       this.scene.socket?.off(WAVE_EVENTS.TUTORIAL_STATUS, this._onTutorialStatus);
       this._onTutorialStatus = null;
     }
-    // Clean up boss HP bars
+    if (this._onStateRequest) {
+      this.scene.socket?.off(WAVE_EVENTS.STATE_REQUEST, this._onStateRequest);
+      this._onStateRequest = null;
+    }
+    // 清理 Boss 血條
     for (const enemy of this.spawnedEnemies) {
       destroyBossHpBar(enemy);
     }
@@ -192,7 +205,48 @@ export class WaveManager {
     this._tutorialReadyHeartbeat = null;
   }
 
-  // ─── host helpers ────────────────────────────────────────────────────
+  /** 客戶端進場時向房主索取 waveState（避免錯過開場期間的廣播）。 */
+  _requestWaveStateSync() {
+    const socket = this.scene.socket;
+    if (!socket || this._host) return;
+
+    const emitRequest = () => socket.emit(WAVE_EVENTS.STATE_REQUEST, {});
+    emitRequest();
+
+    if (this._stateSyncRetry) return;
+    this._stateSyncRetry = this.scene.time.addEvent({
+      delay: 800,
+      loop: true,
+      callback: () => {
+        if (this.currentWave > 0) {
+          this._stopStateSyncRetry();
+          return;
+        }
+        socket.emit(WAVE_EVENTS.STATE_REQUEST, {});
+      },
+    });
+  }
+
+  _stopStateSyncRetry() {
+    if (!this._stateSyncRetry) return;
+    this._stateSyncRetry.remove(false);
+    this._stateSyncRetry = null;
+  }
+
+  /** 房主回應客戶端的 waveState 索取。 */
+  _emitCurrentStateSync() {
+    if (!this._host || this.currentWave <= 0) return;
+    const socket = this.scene.socket;
+    if (!socket) return;
+
+    emitWaveState(socket, { wave: this.currentWave, state: this.state });
+    const cfg = getWaveConfig(this.currentWave);
+    if (cfg) {
+      emitPlayerStats(socket, this._buildPlayerStatsPayload(cfg));
+    }
+  }
+
+  // ─── 房主輔助 ────────────────────────────────────────────────────
 
   _advanceToWave(waveNum) {
     if (waveNum > TOTAL_WAVES) {
@@ -207,10 +261,10 @@ export class WaveManager {
     this.bossSummonFired = {};
     this.spawnedEnemies = [];
 
-    // Apply player stats (hp, attack)
+    // 套用玩家數值（hp、attack）
     this._applyPlayerStats(cfg, waveNum);
 
-    // Broadcast state to client
+    // 廣播狀態至客戶端
     const socket = this.scene.socket;
     if (socket) {
       emitWaveState(socket, {
@@ -229,7 +283,7 @@ export class WaveManager {
       this._tutorialClientReady = false;
 
       const isMP = Boolean(this.scene.socket && this.scene.roomCode);
-      // Show tutorial; onLocalDone fires when THIS player finishes all pages
+      // 顯示教學；onLocalDone 在本機玩家讀完所有頁面時觸發
       this.scene.showTutorial(() => this._onHostLocalTutorialDone(cfg, isMP));
       return;
     }
@@ -243,12 +297,12 @@ export class WaveManager {
     this._startWavePlaying(cfg);
   }
 
-  /** Host: called when local player finishes reading tutorial pages. */
+  /** 房主：本機玩家讀完教學頁面時呼叫。 */
   _onHostLocalTutorialDone(cfg, isMP) {
     this._tutorialLocalDone = true;
     this._tutorialHostReady = true;
     if (isMP) {
-      // Show waiting screen and emit ready signal to client
+      // 顯示等待畫面並向客戶端發送就緒訊號
       this.scene._tutorialDialog?.showWaiting?.();
       this._startTutorialReadyHeartbeat();
     }
@@ -267,14 +321,14 @@ export class WaveManager {
     this._tutorialLocalDone = false;
     this._stopTutorialReadyHeartbeat();
 
-    // Close any tutorial/modal UI on host and unfreeze
+    // 關閉房主端教學／視窗 UI 並解除凍結
     this.scene._tutorialDialog?.destroy?.();
     this.scene._tutorialDialog = null;
     this.scene._preWaveModal?.destroy?.();
     this.scene._preWaveModal = null;
     this.unfreeze();
 
-    // Broadcast playing state to client
+    // 廣播 playing 狀態至客戶端
     const socket = this.scene.socket;
     if (socket) {
       emitWaveState(socket, { wave: this.currentWave, state: "playing" });
@@ -283,12 +337,43 @@ export class WaveManager {
     this._spawnWaveEnemies(cfg);
   }
 
+  /** 套用波次數值、追蹤生成，可選附加 Boss 血條，並廣播至客戶端。 */
+  _registerWaveSpawn(enemy, { waveId, type, x, y, hp, hpMax, damage, emitDamage, withBossBar }) {
+    if (hp != null) enemy.hp = hp;
+    if (hpMax != null) enemy.hpMax = hpMax;
+    if (damage != null) enemy._waveDamage = damage;
+    enemy._waveId = waveId;
+
+    if (withBossBar) createBossHpBar(this.scene, enemy);
+    this.spawnedEnemies.push(enemy);
+
+    const socket = this.scene.socket;
+    if (socket) {
+      emitWaveSpawn(socket, {
+        id: waveId,
+        type,
+        x,
+        y,
+        hp: hp ?? enemy.hp,
+        hpMax: hpMax ?? enemy.hpMax,
+        damage: emitDamage ?? damage ?? enemy._waveDamage ?? 5,
+      });
+    }
+  }
+
+  _rebuildCombatOverlaps() {
+    const scene = this.scene;
+    if (typeof scene.combatSystem?.rebuildPlayerOverlaps === "function") {
+      scene.combatSystem.rebuildPlayerOverlaps();
+    }
+  }
+
   _spawnWaveEnemies(cfg) {
     const scene = this.scene;
     let idCounter = 0;
 
     for (const group of cfg.enemies) {
-      const isFlying = FLYING_TYPES.has(group.type);
+      const isFlying = FLYING_ENEMY_TYPES.has(group.type);
       const positions = getSafeSpawnPoints(scene, group.count, isFlying);
 
       for (let i = 0; i < group.count; i += 1) {
@@ -296,38 +381,21 @@ export class WaveManager {
         const enemy = spawnEnemy(scene, group.type, pos.x, pos.y);
         if (!enemy) continue;
 
-        // Override hp & damage from wave config
-        enemy.hp = group.hp;
-        enemy.hpMax = group.hp;
-        enemy._waveDamage = group.damage;
         idCounter += 1;
-        enemy._waveId = `w${this.currentWave}_${idCounter}`;
-
-        // Attach HP bar for bosses
-        createBossHpBar(scene, enemy);
-
-        this.spawnedEnemies.push(enemy);
-
-        // Broadcast to client
-        const socket = scene.socket;
-        if (socket) {
-          emitWaveSpawn(socket, {
-            id: enemy._waveId,
-            type: group.type,
-            x: pos.x,
-            y: pos.y,
-            hp: group.hp,
-            hpMax: group.hp,
-            damage: group.damage,
-          });
-        }
+        this._registerWaveSpawn(enemy, {
+          waveId: `w${this.currentWave}_${idCounter}`,
+          type: group.type,
+          x: pos.x,
+          y: pos.y,
+          hp: group.hp,
+          hpMax: group.hp,
+          damage: group.damage,
+          withBossBar: true,
+        });
       }
     }
 
-    // Rebuild projectile ↔ player overlaps now that new enemies exist
-    if (typeof scene.combatSystem?.rebuildPlayerOverlaps === "function") {
-      scene.combatSystem.rebuildPlayerOverlaps();
-    }
+    this._rebuildCombatOverlaps();
   }
 
   _checkBossThresholds() {
@@ -338,14 +406,14 @@ export class WaveManager {
       const tag = thresh.tag ?? `${thresh.bossType}_${thresh.hpBelow}`;
       if (this.bossSummonFired[tag]) continue;
 
-      // Find alive boss of this type
+      // 尋找此類型仍存活的 Boss
       const boss = this.spawnedEnemies.find(
         (e) => e.type === thresh.bossType && !e.dead && !e.dying
       );
       if (!boss) continue;
       if (boss.hp > thresh.hpBelow) continue;
 
-      // Fire summon
+      // 觸發召喚
       this.bossSummonFired[tag] = true;
       this._doSummon(thresh.spawns, tag);
     }
@@ -357,7 +425,7 @@ export class WaveManager {
     let idCounter = Object.keys(this.bossSummonFired).length * 100;
 
     for (const group of spawns) {
-      const isFlying = FLYING_TYPES.has(group.type);
+      const isFlying = FLYING_ENEMY_TYPES.has(group.type);
       const positions = getSafeSpawnPoints(scene, group.count, isFlying);
       const groupCfg = cfg?.enemies?.find((e) => e.type === group.type);
 
@@ -366,27 +434,18 @@ export class WaveManager {
         const enemy = spawnEnemy(scene, group.type, pos.x, pos.y);
         if (!enemy) continue;
 
-        if (groupCfg) {
-          enemy.hp = groupCfg.hp;
-          enemy.hpMax = groupCfg.hp;
-          enemy._waveDamage = groupCfg.damage;
-        }
         idCounter += 1;
-        enemy._waveId = `w${this.currentWave}_summon_${tag}_${idCounter}`;
-        this.spawnedEnemies.push(enemy);
-
-        const socket = scene.socket;
-        if (socket) {
-          emitWaveSpawn(socket, {
-            id: enemy._waveId,
-            type: group.type,
-            x: pos.x,
-            y: pos.y,
-            hp: groupCfg?.hp ?? enemy.hpMax,
-            hpMax: groupCfg?.hp ?? enemy.hpMax,
-            damage: groupCfg?.damage ?? 5,
-          });
-        }
+        this._registerWaveSpawn(enemy, {
+          waveId: `w${this.currentWave}_summon_${tag}_${idCounter}`,
+          type: group.type,
+          x: pos.x,
+          y: pos.y,
+          hp: groupCfg?.hp,
+          hpMax: groupCfg?.hp,
+          damage: groupCfg?.damage,
+          emitDamage: groupCfg?.damage ?? 5,
+          withBossBar: false,
+        });
       }
     }
 
@@ -397,7 +456,7 @@ export class WaveManager {
   }
 
   _checkWaveComplete() {
-    // Only count true monster entries (not fx, not dying, not dead, sprite must be active)
+    // 只計算真正的怪物 entry（非 fx、非 dying、非 dead，sprite 須 active）
     const alive = this.spawnedEnemies.filter(
       (e) =>
         !e.dead &&
@@ -407,7 +466,7 @@ export class WaveManager {
     );
 
     if (alive.length > 0) return;
-    if (this.spawnedEnemies.length === 0) return; // haven't spawned yet
+    if (this.spawnedEnemies.length === 0) return; // 尚未生成
 
     this.state = "waveClear";
 
@@ -415,9 +474,9 @@ export class WaveManager {
     if (nextWave > TOTAL_WAVES) {
       this._handleWin();
     } else {
-      // Small delay then advance
+      // 短暫延遲後進入下一波
       this.scene.time.delayedCall(1200, () => {
-        if (this.state !== "waveClear") return; // guard re-entry
+        if (this.state !== "waveClear") return; // 防止重入
         this._advanceToWave(nextWave);
       });
     }
@@ -436,7 +495,7 @@ export class WaveManager {
     this.scene.showWinScreen();
   }
 
-  /** Expose wave config by number for debug tools. */
+  /** 依波次編號取得設定（供除錯工具使用）。 */
   _getWaveCfg(waveNum) {
     return getWaveConfig(Number(waveNum));
   }
@@ -448,12 +507,12 @@ export class WaveManager {
 
     for (let i = 0; i < scene.players.length; i += 1) {
       const entry = scene.players[i];
-      const type = entry.type; // "soldier" | "mage"
+      const type = entry.type; // 職業："soldier" | "mage"
       const pStats = cfg.players[type];
       if (!pStats) continue;
 
-      const playerKey = i === 0 ? 1 : 2;
-      const roleKey = i === 0 ? "p1" : "p2";
+      const playerKey = playerKeyFromIndex(i);
+      const roleKey = roleKeyFromIndex(i);
 
       const prevMax = hud.healthMax?.[roleKey] ?? pStats.hp;
       const prevCur = hud.health?.[roleKey] ?? prevMax;
@@ -464,18 +523,18 @@ export class WaveManager {
       hud.setHealthMax(playerKey, newMax);
       hud.setHealth(playerKey, newCur);
 
-      // Update attack via entry.combat
+      // 透過 entry.combat 更新攻擊力
       if (!entry.combat) entry.combat = {};
       entry.combat._waveAttack = pStats.attack;
     }
 
-    // Apply / clear wave special rules
+    // 套用／清除波次特殊規則
     const sr = cfg.specialRules ?? {};
     scene._waveWarriorNoCost = Boolean(sr.warriorNoCost);
     scene._waveWarriorSkillInvincible = Boolean(sr.warriorSkillInvincible);
     scene._waveMageHealBonus = Number(sr.mageHealBonus) || 0;
 
-    // Reset energy each wave
+    // 每波重置能量
     hud.setEnergy(50);
   }
 
@@ -506,7 +565,7 @@ export class WaveManager {
     return payload;
   }
 
-  // ─── client listeners ────────────────────────────────────────────────
+  // ─── 客戶端監聽 ────────────────────────────────────────────────
 
   _listenAsClient() {
     const socket = this.scene.socket;
@@ -550,6 +609,7 @@ export class WaveManager {
   }
 
   _handleWaveState(msg) {
+    this._stopStateSyncRetry();
     this.currentWave = msg.wave;
     this.scene.hud?.setWave?.(msg.wave);
 
@@ -561,7 +621,7 @@ export class WaveManager {
     if (msg.state === "tutorial") {
       this.state = "tutorial";
       this._tutorialLocalDone = false;
-      // Client shows tutorial; when finished locally, emit ready and show waiting
+      // 客戶端顯示教學；本機讀完後發送就緒並顯示等待
       this.scene.showTutorial(() => {
         this._tutorialLocalDone = true;
         this.scene._tutorialDialog?.showWaiting?.();
@@ -579,7 +639,7 @@ export class WaveManager {
       this.state = "playing";
       this._tutorialLocalDone = false;
       this._stopTutorialReadyHeartbeat();
-      // Destroy tutorial/modal and unfreeze
+      // 銷毀教學／視窗並解除凍結
       this.scene._tutorialDialog?.destroy?.();
       this.scene._tutorialDialog = null;
       this.scene.hidePreWaveModal?.();
@@ -595,14 +655,12 @@ export class WaveManager {
     enemy.hpMax = msg.hpMax;
     enemy._waveDamage = msg.damage;
     enemy._waveId = msg.id;
-    // Attach HP bar for bosses on client side too
+    // 客戶端也為 Boss 附加血條
     createBossHpBar(scene, enemy);
     this.spawnedEnemies.push(enemy);
 
-    if (typeof scene.combatSystem?.rebuildPlayerOverlaps === "function") {
-      scene.combatSystem.rebuildPlayerOverlaps();
-    }
-    // Ensure client's HUD wave is updated
+    this._rebuildCombatOverlaps();
+    // 確保客戶端 HUD 波次已更新
     scene.hud?.setWave?.(this.currentWave);
   }
 
@@ -624,35 +682,9 @@ export class WaveManager {
   _handleEnemyDieFx(msg) {
     const enemy = this.spawnedEnemies.find((e) => e._waveId === msg?.id);
     if (!enemy?.sprite?.active) return;
-    playEnemyDeadSfx(this.scene);
     enemy.dead = true;
     enemy.dying = true;
-    const s = enemy.sprite;
-    if (s.body) {
-      s.setVelocity(0, 0);
-      s.body.enable = false;
-    }
-    if (this.scene.enemyPhysicsGroup?.contains?.(s)) {
-      this.scene.enemyPhysicsGroup.remove(s, false, false);
-    }
-    // Client-side visual only; host handles authoritative removal.
-    this.scene.tweens.killTweensOf(s);
-    this.scene.tweens.add({
-      targets: s,
-      x: (msg?.x ?? s.x) + 6,
-      duration: 45,
-      yoyo: true,
-      repeat: 1,
-      onComplete: () => {
-        this.scene.tweens.add({
-          targets: s,
-          x: msg?.x ?? s.x,
-          alpha: 0,
-          duration: 140,
-          ease: "Quad.easeIn",
-        });
-      },
-    });
+    playNetworkClientDeathFx(this.scene, enemy.sprite, msg?.x ?? enemy.sprite.x);
   }
 
   _handleLootSpawn(msg) {
@@ -662,7 +694,7 @@ export class WaveManager {
     const y = Number(msg.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const entities = spawnEnergyBallBurst(this.scene, x, y, count);
-    // Tag client-side balls with the same IDs the host assigned.
+    // 客戶端球體使用與房主相同的 ID。
     const ids = Array.isArray(msg.lootIds) ? msg.lootIds : [];
     entities.forEach((e, i) => {
       const id = ids[i];
@@ -686,8 +718,8 @@ export class WaveManager {
     hud.setWave?.(msg.wave);
 
     for (const p of msg.players ?? []) {
-      const playerKey = p.index === 0 ? 1 : 2;
-      const roleKey   = p.index === 0 ? "p1" : "p2";
+      const playerKey = playerKeyFromIndex(p.index);
+      const roleKey = roleKeyFromIndex(p.index);
 
       const prevMax = hud.healthMax?.[roleKey] ?? p.hpMax;
       const prevCur = hud.health?.[roleKey]    ?? prevMax;
@@ -703,7 +735,7 @@ export class WaveManager {
       }
     }
 
-    // Apply special rules from host
+    // 套用來自房主的特殊規則
     const sr = msg.specialRules ?? {};
     scene._waveWarriorNoCost = Boolean(sr.warriorNoCost);
     scene._waveWarriorSkillInvincible = Boolean(sr.warriorSkillInvincible);

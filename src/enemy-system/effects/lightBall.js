@@ -1,3 +1,4 @@
+/** 光球攻擊 — 預熱動畫、追蹤飛行、爆炸與碎片散射。 */
 import { getNearestPlayer } from "../combat/targeting.js";
 import { createProjectile } from "../factories/createProjectile.js";
 

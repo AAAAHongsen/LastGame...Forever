@@ -1,3 +1,4 @@
+/** 依 animationRegistry 建立敵人／特效動畫（已存在則略過）。 */
 import { ANIMATIONS } from "../registry/animationRegistry.js";
 
 export function createEnemyAnimations(scene) {

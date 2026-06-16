@@ -1,3 +1,4 @@
+/** 首頁視窗 — 輸入代碼加入現有房間。 */
 import { playButtonHoverSfx } from "../services/audioService.js";
 
 export class JoinRoomModal {
@@ -115,7 +116,7 @@ export class JoinRoomModal {
     const bw = 150, bh = 58;
     let isPressed = false;
 
-    // Use plain Rectangle (not Container) to avoid Phaser 3.90 nested-container input bugs.
+    // 使用 plain Rectangle（非 Container）以避開 Phaser 3.90 巢狀容器輸入 bug。
     const bg = this.scene.add.rectangle(x, y, bw, bh, 0x6b5163, 1);
     bg.setOrigin(0.5);
     bg.setStrokeStyle(4, 0x2d2030, 1);

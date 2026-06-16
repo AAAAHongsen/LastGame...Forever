@@ -1,3 +1,4 @@
+/** Gorgon Boss AI — HP 門檻雷射、踐踏、近戰；委派給 bossActions。 */
 import { faceTowardPlayer } from "../combat/facing.js";
 import { getNearestPlayer } from "../combat/targeting.js";
 import {
@@ -8,25 +9,25 @@ import {
 } from "../systems/bossActions.js";
 import { ENEMY_STATE } from "../helpers/stateMachine.js";
 
-// ── FlyBoss constants ───────────────────────────────────────────────────────
+// ── FlyBoss 常數 ───────────────────────────────────────────────────────
 const FLY_BOSS_ATTACK_COOLDOWN_MS = 10000;
 const FLY_BOSS_TRACK_SPEED        = 80;
 const FLY_BOSS_MIN_Y              = 220;
 const FLY_BOSS_MAX_Y              = 400;
 
-// ── Gorgon (groundBoss) constants ──────────────────────────────────────────
-const GORGON_STOMP_INTERVAL_MS  = 15000;  // stomp every 15 s
-const GORGON_MELEE_RANGE        = 180;    // px — trigger tail swipe when player this close
-const GORGON_MELEE_COOLDOWN_MS  = 3500;   // prevent spam
-// Laser fires every time Gorgon loses 10% of its max HP.
+// ── Gorgon（groundBoss）常數 ──────────────────────────────────────────
+const GORGON_STOMP_INTERVAL_MS  = 15000;  // 每 15 秒踐踏一次
+const GORGON_MELEE_RANGE        = 180;    // px — 玩家接近此距離時觸發尾掃
+const GORGON_MELEE_COOLDOWN_MS  = 3500;   // 防止連發
+// 每當 Gorgon 失去 10% 最大 HP 時發射雷射。
 const GORGON_LASER_HP_STEP_PCT  = 0.10;
 
-/** Boss loop: runs once per update tick (gated by updateEnemies). */
+/** Boss 迴圈：每 update tick 執行一次（由 updateEnemies 閘控）。 */
 export function updateBossAI(scene, enemy, now) {
   const s = enemy?.sprite;
   if (!s?.active) return;
 
-  // ── FlyBoss ──────────────────────────────────────────────────────────────
+  // ── 飛行 Boss ──────────────────────────────────────────────────────────────
   if (enemy.type === "flyBoss") {
     const target = getNearestPlayer(scene, s);
     const p = target?.sprite;
@@ -58,39 +59,39 @@ export function updateBossAI(scene, enemy, now) {
     return;
   }
 
-  // ── Gorgon (groundBoss) ──────────────────────────────────────────────────
+  // ── 地面 Boss（Gorgon / groundBoss）──────────────────────────────────────
   if (enemy.type === "groundBoss") {
-    // Face nearest player
+    // 面向最近玩家
     const target = getNearestPlayer(scene, s);
     if (target?.sprite) faceTowardPlayer(s, target.sprite.x, enemy.config?.facing ?? "right-art");
 
-    // Skip attack decisions while already attacking
+    // 攻擊中略過攻擊決策
     if (enemy.state === ENEMY_STATE.ATTACK) return;
 
-    // Initialise per-enemy timers/trackers lazily
+    // 延遲初始化各敵人的計時器／追蹤器
     const sd = enemy.stateData;
     if (sd.gorgonNextStompAt  == null) sd.gorgonNextStompAt  = now + GORGON_STOMP_INTERVAL_MS;
     if (sd.gorgonLastHpPct    == null) sd.gorgonLastHpPct    = 1.0;
     if (sd.gorgonNextMeleeAt  == null) sd.gorgonNextMeleeAt  = 0;
 
-    // ── Priority 1: Stomp (every 30 s) ──────────────────────────────────
+    // ── 優先 1：踐踏（每 30 秒）──────────────────────────────────
     if (now >= sd.gorgonNextStompAt) {
       sd.gorgonNextStompAt = now + GORGON_STOMP_INTERVAL_MS;
       playGorgonStomp(scene, enemy);
       return;
     }
 
-    // ── Priority 2: Laser beam (triggered on every 10% HP loss) ─────────
+    // ── 優先 2：雷射光束（每失去 10% HP 觸發）────────────────────────
     const hpPct = enemy.hpMax > 0 ? enemy.hp / enemy.hpMax : 0;
     const stepsLost = Math.floor((sd.gorgonLastHpPct - hpPct) / GORGON_LASER_HP_STEP_PCT);
     if (stepsLost >= 1) {
-      // Consume the step(s)
+      // 消耗步進
       sd.gorgonLastHpPct -= stepsLost * GORGON_LASER_HP_STEP_PCT;
       playGorgonBeam(scene, enemy);
       return;
     }
 
-    // ── Priority 3: Melee when player is close ───────────────────────────
+    // ── 優先 3：玩家靠近時近戰 ───────────────────────────────────────────
     if (target?.sprite?.active && now >= sd.gorgonNextMeleeAt) {
       const dist = Math.abs(target.sprite.x - s.x);
       if (dist < GORGON_MELEE_RANGE) {
@@ -100,7 +101,7 @@ export function updateBossAI(scene, enemy, now) {
       }
     }
 
-    // Idle when no attack triggered
+    // 未觸發攻擊時 idle
     if (s.anims?.currentAnim?.key !== enemy.config?.idle) {
       s.anims?.play?.(enemy.config?.idle ?? "test-gorgon-idle", true);
     }

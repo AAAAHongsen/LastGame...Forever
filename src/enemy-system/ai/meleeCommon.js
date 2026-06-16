@@ -1,3 +1,8 @@
+/**
+ * 地面近戰 AI（蘑菇、骷髏）共用輔助。
+ * 蘑菇使用自訂衝刺／攻擊；骷髏使用幀判定框。
+ * beginMeleeAttack / handleMeleeAttackDamage 保留給舊版／通用近戰路徑。
+ */
 import { spriteBoundsHit } from "../combat/collision.js";
 import { damagePlayerEntry } from "../combat/damage.js";
 import { canTurn, faceTowardPlayer, playerInFront } from "../combat/facing.js";
@@ -5,6 +10,8 @@ import { distanceToPlayer } from "../combat/targeting.js";
 import { meleeLunge } from "../helpers/meleeLunge.js";
 import { playAnimationOnce } from "../helpers/playAnimationOnce.js";
 import { ENEMY_STATE, setEnemyState } from "../helpers/stateMachine.js";
+
+// ── 恢復 ────────────────────────────────────────────────────────────────────
 
 export function handleMeleeRecover(enemy, sprite, idleKey, now) {
   if (enemy.state !== ENEMY_STATE.RECOVER) return false;
@@ -16,6 +23,8 @@ export function handleMeleeRecover(enemy, sprite, idleKey, now) {
   return true;
 }
 
+// ── 通用攻擊命中（ATTACK 狀態下 bounds 重疊）─────────────────
+
 export function handleMeleeAttackDamage(scene, enemy, playerEntry, playerVisual, damage) {
   if (enemy.state !== ENEMY_STATE.ATTACK) return false;
   const sprite = enemy.sprite;
@@ -25,6 +34,8 @@ export function handleMeleeAttackDamage(scene, enemy, playerEntry, playerVisual,
   }
   return true;
 }
+
+// ── 通用衝刺 + 攻擊序列 ─────────────────────────────────────────
 
 export function beginMeleeAttack(scene, enemy, { atkKey, idleKey, lungePx, lungeMs, recovery, cooldown, now }) {
   setEnemyState(enemy, ENEMY_STATE.ATTACK, {
@@ -60,6 +71,8 @@ export function beginMeleeAttack(scene, enemy, { atkKey, idleKey, lungePx, lunge
     runAttackAnim();
   }
 }
+
+// ── 距離／朝向輔助 ──────────────────────────────────────────────────
 
 export function getMeleeDistances(sprite, playerSprite, stats) {
   const dx = playerSprite.x - sprite.x;

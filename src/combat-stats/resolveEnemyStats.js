@@ -2,10 +2,10 @@ import { getEnemyBaseStats } from "./config/enemyBaseStats.js";
 import { getCombatScaling } from "./config/scaling.js";
 
 /**
- * enemyHp = baseHp × difficultyMultiplier × stageMultiplier
- * @param {string} type
- * @param {object} config — ENEMY_TYPES entry
- * @param {Phaser.Scene} scene
+ * 敵人 HP = baseHp × difficultyMultiplier × stageMultiplier
+ * @param {string} type 敵人類型
+ * @param {object} config — ENEMY_TYPES 項目
+ * @param {Phaser.Scene} scene 場景
  */
 export function resolveEnemyMaxHp(type, config, scene) {
   const stats = config?.stats ?? {};

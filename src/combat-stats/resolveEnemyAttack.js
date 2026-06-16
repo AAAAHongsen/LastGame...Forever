@@ -1,6 +1,6 @@
 /**
- * Enemy → player damage.
- * Wave-specific damage stored on entry._waveDamage takes priority over registry stats.
+ * 敵人 → 玩家傷害。
+ * entry._waveDamage 的波次傷害優先於 registry 數值。
  */
 export function resolveEnemyAttackDamage(config) {
   return config?.stats?.damage ?? 6;

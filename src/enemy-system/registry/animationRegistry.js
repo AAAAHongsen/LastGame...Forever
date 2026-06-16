@@ -1,8 +1,9 @@
+/** 資料驅動的敵人／特效動畫定義表。 */
 function frameRange(n) {
   return Array.from({ length: n }, (_, i) => i);
 }
 
-/** Data-driven animation definitions. */
+/** 資料驅動的動畫定義。 */
 export const ANIMATIONS = [
   { key: "test-mushroom-run", texture: "test-mushroom-run", start: 0, end: 7, frameRate: 12, repeat: -1 },
   { key: "test-mushroom-lunge", texture: "test-mushroom-run", start: 0, end: 7, frameRate: 12, repeat: 0 },

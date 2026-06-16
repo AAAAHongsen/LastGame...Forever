@@ -1,8 +1,8 @@
 /**
- * Generic projectile factory.
- * @param {Phaser.Scene} scene
- * @param {object} options
- * @returns {Phaser.Physics.Arcade.Sprite|null}
+ * 通用投射物工廠。
+ * @param {Phaser.Scene} scene 場景
+ * @param {object} options 建立選項
+ * @returns {Phaser.Physics.Arcade.Sprite|null} 建立的投射物或 null
  */
 export function createProjectile(scene, options) {
   const {

@@ -1,3 +1,4 @@
+/** combat-stats 匯出 — 將戰利品、玩家攻擊與敵人傷害接入 GameScene。 */
 import { DEFAULT_COMBAT_SCALING } from "./config/scaling.js";
 import { initLootManager, preloadCombatLootAssets, updateLootPickups } from "./loot/lootManager.js";
 import { updateLootMagnetAndPickup } from "./loot/lootPickup.js";

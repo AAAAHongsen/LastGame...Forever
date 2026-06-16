@@ -1,3 +1,4 @@
+/** 第 1 波教學頁 — 雙方確認後才開始波次。 */
 import { BASE_WIDTH, BASE_HEIGHT } from "../config/constants.js";
 
 const PAGES = [
@@ -14,9 +15,9 @@ export class TutorialDialog {
     this.scene = scene;
     this.onLocalDone = onLocalDone;
     this._page = 0;
-    this._done = false;       // local reading done
+    this._done = false;       // 本機已讀完
     this._destroyed = false;
-    this._waiting = false;    // showing "waiting" screen
+    this._waiting = false;    // 顯示「等待中」畫面
     this._clickKey = null;
     this._blinkTimer = null;
     this.build();
@@ -33,7 +34,7 @@ export class TutorialDialog {
       new Phaser.Geom.Rectangle(-BASE_WIDTH / 2, -BASE_HEIGHT / 2, BASE_WIDTH, BASE_HEIGHT),
       Phaser.Geom.Rectangle.Contains
     );
-    // Click intentionally disabled — Space key only.
+    // 刻意停用點擊 — 僅 Space 鍵。
 
     const panelW = 640;
     const panelH = 260;
@@ -70,7 +71,7 @@ export class TutorialDialog {
 
     this.container.add([overlay, panel, this._bodyText, this._hintText, this._pageText]);
 
-    // Manual blink via timer (avoids Phaser tween lifecycle crashes on destroy)
+    // 以計時器手動閃爍（避免 destroy 時 Phaser tween 生命週期崩潰）
     this._blinkTimer = s.time.addEvent({
       delay: 600,
       loop: true,
@@ -110,13 +111,13 @@ export class TutorialDialog {
     this.onLocalDone?.();
   }
 
-  /** Called by WaveManager when this player finished but partner hasn't yet. */
+  /** WaveManager 呼叫：本玩家已讀完但夥伴尚未。 */
   showWaiting() {
     if (this._destroyed) return;
     if (this._waiting) return;
     this._waiting = true;
 
-    // Stop blink timer cleanly
+    // 乾淨停止閃爍計時器
     if (this._blinkTimer) {
       this._blinkTimer.remove(false);
       this._blinkTimer = null;
@@ -135,7 +136,7 @@ export class TutorialDialog {
     if (this._hintText?.active)  this._hintText.setAlpha(0);
     if (this._pageText?.active)  this._pageText.setAlpha(0);
 
-    // Gentle pulse on body text
+    // 正文文字柔和脈動
     if (this._bodyText?.active) {
       this._waitTimer = this.scene.time.addEvent({
         delay: 700,
@@ -164,7 +165,7 @@ export class TutorialDialog {
       this._clickKey.destroy?.();
       this._clickKey = null;
     }
-    try { this.scene.input?.setTopOnly?.(false); } catch { /* ignore */ }
+    try { this.scene.input?.setTopOnly?.(false); } catch { /* 略過 */ }
     this.container?.destroy(true);
     this.container = null;
     this._bodyText = null;

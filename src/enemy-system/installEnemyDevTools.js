@@ -1,3 +1,6 @@
+/**
+ * 敵人系統初始化與測試房除錯工具（enemyDebug.*）。
+ */
 import { preloadEnemyAssets } from "./assets/enemyAssets.js";
 import { createEnemyAnimations } from "./assets/enemyAnimations.js";
 import { findEnemyByType } from "./combat/targeting.js";
@@ -16,16 +19,15 @@ import {
 import { initCombatStats } from "../combat-stats/initCombatStats.js";
 import { createBossHpBar } from "./ui/BossHpBar.js";
 import { getWaveConfig } from "../wave/waveConfig.js";
-import { getSafeSpawnPoints } from "../wave/spawnHelpers.js";
+import { getSafeSpawnPoints, FLYING_ENEMY_TYPES } from "../wave/spawnHelpers.js";
 
 export { preloadEnemyAssets, createEnemyAnimations };
 
 /**
- * In the test room, shorten Gorgon's initial attack timers so attacks fire
- * within seconds of spawning instead of waiting 30 s.
- * Stomp  → fires 4 s after spawn, then every 30 s as normal.
- * Laser  → fires on first 10 % HP loss (unchanged logic).
- * Melee  → ready immediately (unchanged logic).
+ * 測試房縮短 Gorgon 初始攻擊計時，生成後數秒內即攻擊而非等 30 秒。
+ * 踐踏 → 生成 4 秒後發動，之後每 30 秒如常。
+ * 雷射 → 首次失去 10% HP 時發動（邏輯不變）。
+ * 近戰 → 立即可用（邏輯不變）。
  */
 function _primeGorgonTimers(scene, enemy) {
   if (enemy?.type !== "groundBoss") return;
@@ -50,7 +52,7 @@ export function installEnemyDevTools(scene) {
   scene.spawnEffect = (kind, x, y) => {
     const fx = EFFECTS[kind]?.(scene, { x, y });
     if (!fx) {
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console — 略過主控台警告
       console.warn("[enemySystem] Unknown effect:", kind);
       return null;
     }
@@ -69,14 +71,13 @@ export function installEnemyDevTools(scene) {
   scene.rebuildTestEnemyPlayerOverlaps = () => rebuildPlayerOverlaps(scene);
 
   if (typeof window !== "undefined") {
-    /** Spawn all monsters for a given wave number with correct wave stats. */
+    /** 依波次編號生成該波所有怪物並套用正確數值。 */
     const spawnWave = (waveNum) => {
       const cfg = getWaveConfig(waveNum);
       if (!cfg) { console.warn(`[enemyDebug] No config for wave ${waveNum}`); return; } // eslint-disable-line no-console
-      const FLYING = new Set(["bat", "flyBoss"]);
       let idCounter = 0;
       for (const group of cfg.enemies ?? []) {
-        const isFlying  = FLYING.has(group.type);
+        const isFlying = FLYING_ENEMY_TYPES.has(group.type);
         const positions = getSafeSpawnPoints(scene, group.count, isFlying);
         for (let i = 0; i < group.count; i += 1) {
           const pos   = positions[i] ?? positions[0];
@@ -91,7 +92,7 @@ export function installEnemyDevTools(scene) {
         }
       }
       scene.combatSystem?.rebuildPlayerOverlaps?.();
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console — 略過主控台警告
       console.log(`[enemyDebug] Spawned wave ${waveNum} monsters`);
     };
 
@@ -117,13 +118,13 @@ export function installEnemyDevTools(scene) {
       help: () => printEnemyDebugHelp(),
       mushroomTrace: (on = true) => {
         window.__mushroomAttackDebug = Boolean(on);
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console — 略過主控台警告
         console.log(`[mushroom-attack] trace ${on ? "ON" : "OFF"}`);
         return on;
       },
       skeletonTrace: (on = true) => {
         window.__skeletonAttackDebug = Boolean(on);
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console — 略過主控台警告
         console.log(`[skeleton-attack] trace ${on ? "ON" : "OFF"}`);
         return on;
       },
@@ -131,7 +132,7 @@ export function installEnemyDevTools(scene) {
 
     window.enemyDebug = debug;
 
-    // Legacy aliases
+    // 舊版別名
     window.spawnTestEnemy   = debug.spawn;
     window.spawnTestEffect  = debug.effect;
     window.clearTestEnemies = debug.clear;
@@ -162,7 +163,7 @@ export function installEnemyDevTools(scene) {
     }
   });
 
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console — 略過主控台警告
   console.log(
     "%c[Enemy System]%c 已載入 — 輸入 enemyDebug.help() 或 testEnemyHelp()",
     "color:#7fd491;font-weight:bold",
@@ -183,7 +184,7 @@ function printEnemyDebugHelp() {
     "",
     "  enemyDebug.spawnWave(1)               // 生成 wave N 全部怪物（含正確血量/攻擊力）",
     "  enemyDebug.spawnWave(3)               // 例如 wave 3：flyBoss + bat + mushroom",
-    "  enemyDebug.spawnWave(5)               // wave 5：groundBoss + bat + mushroom + skeleton",
+    "  enemyDebug.spawnWave(5)               // 第 5 波：groundBoss + bat + mushroom + skeleton",
     "",
     "  enemyDebug.effect('soundWave'|'lightBall'|'fallFireball' ...)",
     "",
@@ -209,7 +210,7 @@ function printEnemyDebugHelp() {
     "  hudDebug.applyWaveStats(4)            // 一次套用 wave 4 全部玩家數值",
     "  hudDebug.help()",
   ].join("\n");
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console — 略過主控台警告
   console.log(msg);
   return msg;
 }

@@ -1,15 +1,10 @@
+/** 本局重置、重開，以及返回首頁。 */
 import { clearEnemies } from "../enemy-system/systems/enemyManager.js";
 import { clearLootPickups } from "../combat-stats/loot/lootManager.js";
 import { WaveManager } from "../wave/WaveManager.js";
-
-const SPAWN_POINTS = [
-  { x: 120, y: -80 },
-  { x: 220, y: -120 },
-];
-
-function defaultHpForType(type) {
-  return type === "mage" ? 70 : 100;
-}
+import { getDefaultMaxHpForClass } from "../combat-stats/config/playerStats.js";
+import { getLocalPlayerIndex } from "./multiplayerSession.js";
+import { PLAYER_SPAWN_POINTS } from "../scenes/playerSetup.js";
 
 function playIdleAnim(entry) {
   const v = entry?.visual;
@@ -18,10 +13,9 @@ function playIdleAnim(entry) {
   v.anims.play(key, true);
 }
 
-/** Reset a live GameScene run without stopping the scene (avoids Phaser 3.90 shutdown bugs). */
-export function resetGameRun(scene) {
-  scene._restartHandshakeBound = false;
-  // Reset wave manager before clearing enemies
+// ── 局內重置（Game Over → Restart）──────────────────────────────────────
+
+function clearWaveUiOverlays(scene) {
   if (scene.waveManager) {
     scene.waveManager.destroy?.();
     scene.waveManager = null;
@@ -32,23 +26,25 @@ export function resetGameRun(scene) {
   scene._preWaveModal = null;
   scene._winScreen?.destroy?.();
   scene._winScreen = null;
+}
 
+function clearCombatWorld(scene) {
   clearEnemies(scene);
   clearLootPickups(scene);
-
   scene.fireballs?.clear?.(true, true);
   scene.projectileSystem?.group?.clear?.(true, true);
   scene.projectileSystem?.hazards?.clear?.(true, true);
-
   scene.wildEffect?.destroy?.();
   scene.wildEffect = null;
   scene.wildEffectOwner = null;
   scene.energyNoCostUntil = 0;
   scene.playersInvincibleUntil = 0;
+}
 
+function resetPlayersToSpawn(scene) {
   for (let i = 0; i < (scene.players?.length ?? 0); i += 1) {
     const entry = scene.players[i];
-    const spawn = SPAWN_POINTS[i] ?? SPAWN_POINTS[0];
+    const spawn = PLAYER_SPAWN_POINTS[i] ?? PLAYER_SPAWN_POINTS[0];
     const s = entry?.sprite;
     const v = entry?.visual;
     if (s) {
@@ -63,17 +59,17 @@ export function resetGameRun(scene) {
       entry.isAttacking = false;
       entry.attackHitEnemies = null;
       entry.gravityLocked = false;
-      // Clear wave-specific attack override so WaveManager re-applies wave 1 stats
       if (entry.combat) delete entry.combat._waveAttack;
       playIdleAnim(entry);
     }
   }
+}
 
+function resetHudAndWaveRules(scene) {
   const p1Type = scene.players?.[0]?.type ?? "soldier";
   const p2Type = scene.players?.[1]?.type ?? "mage";
-  // Reset both max AND current HP so WaveManager's carry-over formula produces full HP.
-  const p1DefaultHp = defaultHpForType(p1Type);
-  const p2DefaultHp = defaultHpForType(p2Type);
+  const p1DefaultHp = getDefaultMaxHpForClass(p1Type);
+  const p2DefaultHp = getDefaultMaxHpForClass(p2Type);
   scene.hud?.setHealthMax(1, p1DefaultHp);
   scene.hud?.setHealth(1, p1DefaultHp);
   scene.hud?.setHealthMax(2, p2DefaultHp);
@@ -83,8 +79,7 @@ export function resetGameRun(scene) {
   scene.hud?.setOrbs(2, 0);
   scene.hud?.setWave?.(1);
 
-  const isMultiplayer = Boolean(scene.roomCode && (scene.playerNumber === 1 || scene.playerNumber === 2));
-  const localIndex = isMultiplayer ? (scene.playerNumber === 2 ? 1 : 0) : 0;
+  const localIndex = getLocalPlayerIndex(scene);
   scene.activePlayerIndex = localIndex;
   const local = scene.players?.[localIndex];
   if (local?.sprite && scene.playerController) {
@@ -92,15 +87,25 @@ export function resetGameRun(scene) {
   }
   scene.updateActiveControlText?.();
 
-  // Clear wave-specific special-rule flags
   scene._waveWarriorNoCost = false;
   scene._waveWarriorSkillInvincible = false;
   scene._waveMageHealBonus = 0;
+}
 
-  // Re-create wave manager and start from wave 1
+function restartWaveFromBeginning(scene) {
   scene._gameOverFrozen = false;
   scene.waveManager = new WaveManager(scene);
   scene.waveManager.start();
+}
+
+/** 在不停止場景的情況下重置進行中的 GameScene（避開 Phaser 3.90 關閉 bug）。 */
+export function resetGameRun(scene) {
+  scene._restartHandshakeBound = false;
+  clearWaveUiOverlays(scene);
+  clearCombatWorld(scene);
+  resetPlayersToSpawn(scene);
+  resetHudAndWaveRules(scene);
+  restartWaveFromBeginning(scene);
 }
 
 export function closeGameOverUi(scene) {
@@ -111,9 +116,11 @@ export function closeGameOverUi(scene) {
   try {
     scene.input?.setTopOnly?.(false);
   } catch {
-    /* ignore */
+    /* 略過 */
   }
 }
+
+// ── GameScene 關閉輔助 ──────────────────────────────────────────────────────
 
 function detachSceneUpdateHandlers(scene) {
   if (scene._enemySystemUpdateHandler) {
@@ -150,11 +157,11 @@ function detachSceneInput(scene) {
     scene.input.setTopOnly(false);
     scene.input.resetPointers?.();
   } catch {
-    /* ignore */
+    /* 略過 */
   }
 }
 
-/** Phaser 3.90: empty display list before stop to avoid shutdown reading undefined slots. */
+/** Phaser 3.90：stop 前先清空顯示列表，避免關閉時讀到 undefined 槽位。 */
 function clearDisplayListSafely(scene) {
   const list = scene.children?.list;
   if (!list) return;
@@ -169,7 +176,7 @@ function clearDisplayListSafely(scene) {
 }
 
 /**
- * Stop GameScene after manual teardown (use from CharacterSelect / menu — not from End button).
+ * 手動拆解後停止 GameScene（用於 CharacterSelect／選單 — 非 End 按鈕）。
  */
 export function safeStopGameScene(sm) {
   if (!sm || typeof sm.get !== "function") return;
@@ -191,7 +198,9 @@ export function safeStopGameScene(sm) {
   sm.stop("GameScene");
 }
 
-/** Re-enable pointer input on menu / select scenes after GameScene is detached. */
+// ── 選單場景輸入恢復 ───────────────────────────────────────────────────────
+
+/** GameScene 卸載後，重新啟用選單／選角場景的指標輸入。 */
 export function ensureMenuInput(scene) {
   if (!scene?.input) return;
   scene.input.enabled = true;
@@ -199,7 +208,7 @@ export function ensureMenuInput(scene) {
   try {
     scene.input.resetPointers?.();
   } catch {
-    /* ignore */
+    /* 略過 */
   }
   const gameInput = scene.game?.input;
   if (gameInput) {
@@ -207,13 +216,15 @@ export function ensureMenuInput(scene) {
     try {
       gameInput.resetPointers?.();
     } catch {
-      /* ignore */
+      /* 略過 */
     }
   }
 }
 
+// ── 場景導航 ────────────────────────────────────────────────────────────────
+
 /**
- * @param {Phaser.Scene} hostScene
+ * @param {Phaser.Scene} hostScene 宿主場景
  */
 export function disposeBackgroundScenes(hostScene) {
   const sm = hostScene?.scene;
@@ -227,7 +238,7 @@ export function disposeBackgroundScenes(hostScene) {
     }
 
     if (hostKey === "FrontPageScene") {
-      // After End, GameScene stays asleep — do NOT stop it here (breaks global input).
+      // End 之後 GameScene 仍處休眠 — 勿在此 stop（會破壞全域輸入）。
       if (sm.isActive("CharacterSelectScene") || sm.isSleeping("CharacterSelectScene")) {
         sm.stop("CharacterSelectScene");
       }
@@ -235,9 +246,7 @@ export function disposeBackgroundScenes(hostScene) {
   });
 }
 
-/**
- * Leave GameScene: sleep it, show FrontPage. GameScene is stopped later via safeStopGameScene.
- */
+/** 離開 GameScene：休眠並顯示 FrontPage。GameScene 稍後由 safeStopGameScene 停止。 */
 export function returnToFrontPageFromGame(scene) {
   const sm = scene?.scene;
   if (!sm || typeof sm.launch !== "function") return;

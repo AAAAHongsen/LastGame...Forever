@@ -1,6 +1,7 @@
 import { getPlayers } from "../../enemy-system/combat/targeting.js";
+import { roleKeyFromIndex } from "../../services/multiplayerSession.js";
 
-/** Map player entry → HUD player key (1 = left / p1, 2 = right / p2). */
+/** 玩家 entry → HUD 玩家鍵（1 = 左／p1，2 = 右／p2）。 */
 export function getHudPlayerKeyForEntry(scene, playerEntry) {
   const players = getPlayers(scene);
   const idx = players.indexOf(playerEntry);
@@ -9,9 +10,9 @@ export function getHudPlayerKeyForEntry(scene, playerEntry) {
   return null;
 }
 
-/** Add orbs to the player shown below the shared energy bar.
- *  Both host and client call this, but the client also emits `waveLootCollected`
- *  so the host can suppress its own grant for the same ball (no double-grant). */
+/** 為共用能量條下方顯示的玩家增加寶珠。
+ *  房主與客戶端都會呼叫，但客戶端也會 emit `waveLootCollected`，
+ *  讓房主對同一顆球略過重複發放。 */
 export function grantOrbsToPlayer(scene, playerEntry, amount) {
   const hud = scene.hud;
   if (!hud?.setOrbs) return false;
@@ -19,20 +20,20 @@ export function grantOrbsToPlayer(scene, playerEntry, amount) {
   const playerKey = getHudPlayerKeyForEntry(scene, playerEntry);
   if (playerKey == null) return false;
 
-  const roleKey = playerKey === 2 ? "p2" : "p1";
+  const roleKey = roleKeyFromIndex(playerKey - 1);
   const cur = Math.max(0, Math.round(Number(hud.orbs?.[roleKey]) || 0));
   const max = hud.orbsMax ?? 5;
   const add = Math.max(1, Math.round(Number(amount) || 1));
   const next = Math.min(max, cur + add);
   hud.setOrbs(playerKey, next);
-  // Sync to partner so their HUD reflects the new orb count immediately.
+  // 同步給夥伴，使其 HUD 立即反映新寶珠數。
   if (typeof scene?.emitPlayerResource === "function") {
     scene.emitPlayerResource({ roleKey, orbs: next });
   }
   return true;
 }
 
-/** Nearest living player to a world point. */
+/** 距離世界座標最近的存活玩家。 */
 export function getNearestPlayerToPoint(scene, x, y) {
   const players = getPlayers(scene);
   let best = null;

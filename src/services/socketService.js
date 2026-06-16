@@ -1,3 +1,4 @@
+/** Socket.IO 用戶端單例 — 房間生命週期與伺服器 URL 持久化。 */
 import { io } from "https://cdn.socket.io/4.8.1/socket.io.esm.min.js";
 
 let socket = null;
@@ -11,7 +12,7 @@ function normalizeServerUrl(url) {
   if (typeof url !== "string") return "";
   const trimmed = url.trim();
   if (!trimmed) return "";
-  // Remove trailing slash to avoid accidental double slash in path resolution.
+  // 移除尾端斜線，避免路徑解析時意外出現雙斜線。
   return trimmed.replace(/\/+$/, "");
 }
 
@@ -20,7 +21,7 @@ function resolveServerUrl() {
   const fromGlobal = normalizeServerUrl(window.__LGF_SERVER_URL ?? "");
   if (fromGlobal) return fromGlobal;
 
-  // Convenient one-off override: ?server=https://xxxx.ngrok-free.app
+  // 方便的一次性覆寫：?server=https://xxxx.ngrok-free.app
   try {
     const qs = new URLSearchParams(window.location.search);
     const fromQuery = normalizeServerUrl(qs.get("server") ?? "");
@@ -29,13 +30,13 @@ function resolveServerUrl() {
       return fromQuery;
     }
   } catch {
-    /* ignore */
+    /* 略過 */
   }
 
   const fromStorage = normalizeServerUrl(window.localStorage?.getItem?.(SERVER_URL_STORAGE_KEY) ?? "");
   if (fromStorage) return fromStorage;
 
-  // Empty string = same-origin (recommended when opening game from server URL directly).
+  // 空字串 = 同源（直接從伺服器 URL 開啟遊戲時建議使用）。
   return "";
 }
 
@@ -57,7 +58,7 @@ export function ensureSocket() {
   if (socket) return socket;
   const serverUrl = resolveServerUrl();
   socket = io(serverUrl || undefined, {
-    // Allow polling fallback for restrictive networks; websocket still preferred.
+    // 允許 polling 後援以適應受限網路；仍優先使用 websocket。
     transports: ["websocket", "polling"],
     upgrade: true,
     reconnection: true,
@@ -72,7 +73,7 @@ export function disconnectSocket() {
   socket = null;
 }
 
-/** Leave the current multiplayer room without tearing down the socket connection. */
+/** 離開目前多人房間，但不中斷 socket 連線。 */
 export function leaveActiveRoom() {
   const s = getSocket();
   if (!s) return;

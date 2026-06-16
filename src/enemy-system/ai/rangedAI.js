@@ -1,3 +1,4 @@
+/** 遠程敵人 AI — 蝙蝠依設定間隔音波攻擊。 */
 import { canTurn, faceTowardPlayer } from "../combat/facing.js";
 import { distanceToPlayer, getNearestPlayer } from "../combat/targeting.js";
 import { COMBAT_EFFECTS } from "../registry/effectRegistry.js";

@@ -1,4 +1,4 @@
-/** Phaser overlap callbacks may pass (player, proj) or (proj, player). */
+/** Phaser overlap 回呼可能傳 (player, proj) 或 (proj, player)。 */
 export function pickGroupMember(group, a, b) {
   if (!group) return null;
   if (group.contains?.(a)) return a;
@@ -6,14 +6,14 @@ export function pickGroupMember(group, a, b) {
   return null;
 }
 
-/** Arcade physics body AABB (world space). */
+/** Arcade 物理 body AABB（世界座標）。 */
 export function getArcadeBodyRect(sprite) {
   const b = sprite?.body;
   if (!b) return null;
   return new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height);
 }
 
-/** True when physics bodies overlap (not display texture bounds). */
+/** 物理 body 重疊時為 true（非顯示貼圖 bounds）。 */
 export function arcadeBodiesOverlap(spriteA, spriteB) {
   const ra = getArcadeBodyRect(spriteA);
   const rb = getArcadeBodyRect(spriteB);
@@ -21,7 +21,7 @@ export function arcadeBodiesOverlap(spriteA, spriteB) {
   return Phaser.Geom.Rectangle.Overlaps(ra, rb);
 }
 
-/** Horizontal separation between two bodies; 0 if overlapping. */
+/** 兩 body 水平間距；重疊時為 0。 */
 export function horizontalBodyGap(spriteA, spriteB) {
   const ra = getArcadeBodyRect(spriteA);
   const rb = getArcadeBodyRect(spriteB);
@@ -33,8 +33,8 @@ export function horizontalBodyGap(spriteA, spriteB) {
 }
 
 /**
- * Display-bounds overlap (full frame — can be much larger than physics body).
- * Prefer arcadeBodiesOverlap / skeletonHitbox for melee damage.
+ * 顯示 bounds 重疊（完整幀 — 可能遠大於物理 body）。
+ * 近戰傷害請優先 arcadeBodiesOverlap / skeletonHitbox。
  */
 export function spriteBoundsHit(a, b) {
   if (!a?.active || !b?.active) return false;

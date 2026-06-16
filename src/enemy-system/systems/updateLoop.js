@@ -1,3 +1,4 @@
+/** 每幀敵人與投射物更新；遵守 game-over 凍結。 */
 import { updateEnemyAI } from "../ai/index.js";
 import { cleanupOutOfBounds } from "../helpers/spriteCleanup.js";
 import { updateEnemies } from "./enemyManager.js";

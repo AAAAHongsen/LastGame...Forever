@@ -1,3 +1,6 @@
+/**
+ * 敵人攻擊的投射物 ↔ 玩家 overlap 處理。
+ */
 import { pickGroupMember } from "../combat/collision.js";
 import { damagePlayerEntry } from "../combat/damage.js";
 import { getPlayers } from "../combat/targeting.js";
@@ -22,13 +25,13 @@ export function rebuildPlayerOverlaps(scene) {
   for (const p of getPlayers(scene)) {
     if (!p?.sprite) continue;
 
+    // ── 移動投射物（lightBall、soundWave、shards…）──────────────────────
     scene.combatSystem._overlaps.push(
       scene.physics.add.overlap(group, p.sprite, (o1, o2) => {
         const proj = pickGroupMember(group, o1, o2);
         const other = proj === o1 ? o2 : o1;
         if (!proj?.active || other !== p.sprite) return;
         const kind = proj.getData?.("testProjKind");
-        // Look up the owning enemy entry for wave-accurate damage
         const ownerEnemy = proj.getData?.("ownerEnemy");
         const baseDmg = ownerEnemy
           ? resolveEnemyAttackDamageFromEntry(ownerEnemy)
@@ -54,6 +57,7 @@ export function rebuildPlayerOverlaps(scene) {
       })
     );
 
+    // ── 靜止危害（火池、雷射）— 每秒 1 次傷害 tick ─────
     scene.combatSystem._overlaps.push(
       scene.physics.add.overlap(hazards, p.sprite, (o1, o2) => {
         const hz = pickGroupMember(hazards, o1, o2);
@@ -65,9 +69,8 @@ export function rebuildPlayerOverlaps(scene) {
         if (t - (lastMap[pid] ?? 0) < 1000) return;
         lastMap[pid] = t;
         hz.setData("lastDmgMap", lastMap);
-        // fixedDamage overrides owner-enemy damage (used for fire=20/s, laser=20/s).
-        const fixedDmg    = hz.getData?.("fixedDamage");
-        const ownerEnemy  = hz.getData?.("ownerEnemy");
+        const fixedDmg = hz.getData?.("fixedDamage");
+        const ownerEnemy = hz.getData?.("ownerEnemy");
         const dmg = fixedDmg != null
           ? fixedDmg
           : (ownerEnemy ? resolveEnemyAttackDamageFromEntry(ownerEnemy) : 10);

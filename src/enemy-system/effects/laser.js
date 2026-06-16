@@ -8,10 +8,10 @@ export function spawnLaser(scene, { fromSprite, ownerEnemy } = {}) {
 
   const bossDepth = fromSprite.depth ?? 15;
   const faceLeft  = Boolean(fromSprite.flipX);
-  // Lift beam higher so standing on lower ground under Gorgon won't get clipped.
+  // 提高光束，避免站在 Gorgon 下方低地時被裁切。
   const y         = fromSprite.y - 80;
 
-  // Use physics sprite so it can participate in the hazards overlap.
+  // 使用物理 sprite 以參與 hazards overlap。
   const fx = scene.physics.add.sprite(0, y, "test-laser-sheet", 0);
   fx.setDepth(bossDepth - 1);
   fx.setScale(2);
@@ -36,11 +36,11 @@ export function spawnLaser(scene, { fromSprite, ownerEnemy } = {}) {
     if (fx.body) fx.body.setSize(Math.max(10, BASE_WIDTH - ax), 28);
   }
 
-  // Tag for continuous damage via hazards overlap.
+  // 標記以透過 hazards overlap 持續傷害。
   fx.setData("fixedDamage", LASER_DAMAGE_PER_S);
   if (ownerEnemy) fx.setData("ownerEnemy", ownerEnemy);
 
-  // Add to hazards group so combatSystem.js handles per-second damage.
+  // 加入 hazards 群組，由 combatSystem.js 處理每秒傷害。
   if (scene.projectileSystem?.hazards) {
     scene.projectileSystem.hazards.add(fx);
   }

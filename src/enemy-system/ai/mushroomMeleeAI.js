@@ -1,3 +1,6 @@
+/**
+ * 蘑菇近戰 AI — 衝向玩家，攻擊動畫期間以 bounds 判定命中。
+ */
 import {
   arcadeBodiesOverlap,
   getArcadeBodyRect,
@@ -7,22 +10,18 @@ import {
 import { damagePlayerEntry } from "../combat/damage.js";
 import { resolveEnemyAttackDamageFromEntry } from "../../combat-stats/resolveEnemyAttack.js";
 import { getNearestPlayer } from "../combat/targeting.js";
-import { ENEMY_STATE } from "../constants.js";
+import { getAnimDurationMs } from "../helpers/animUtils.js";
 import { isMushroomAttackDebug, mushroomAttackLog } from "../debug/mushroomAttackDebug.js";
 import { meleeLunge } from "../helpers/meleeLunge.js";
 import { playAnimationOnce } from "../helpers/playAnimationOnce.js";
-import { setEnemyState } from "../helpers/stateMachine.js";
+import { ENEMY_STATE, setEnemyState } from "../helpers/stateMachine.js";
 import {
   faceMeleeTarget,
   getMeleeDistances,
   handleMeleeRecover,
 } from "./meleeCommon.js";
 
-function getAnimDurationMs(scene, key) {
-  const anim = key ? scene.anims?.get?.(key) : null;
-  if (!anim?.frames?.length) return 500;
-  return (anim.frames.length / (anim.frameRate || 12)) * 1000;
-}
+// ── 除錯輔助 ───────────────────────────────────────────────────────────
 
 function snapshotCombatPositions(enemySprite, playerSprite) {
   const eb = getArcadeBodyRect(enemySprite);
@@ -36,7 +35,7 @@ function snapshotCombatPositions(enemySprite, playerSprite) {
   };
 }
 
-/** Uses facingDirection (set by faceMeleeTarget), NOT flipX — left-default flipX breaks playerInFront. */
+/** 使用 facingDirection（由 faceMeleeTarget 設定），非 flipX — 預設朝左的 flipX 會破壞 playerInFront。 */
 function isPlayerInMushroomFacing(enemy, playerSprite, margin = 4) {
   const dx = playerSprite.x - enemy.sprite.x;
   const fd = enemy.facingDirection ?? 1;
@@ -71,7 +70,7 @@ function tryMushroomMeleeHit(scene, enemy, playerEntry, damage, reason) {
   return true;
 }
 
-/** Damage only after lunge; physics body overlap required (ignores oversized display bounds). */
+/** 僅衝刺後造成傷害；需物理 body 重疊（忽略過大的顯示 bounds）。 */
 function handleMushroomAttackHit(scene, enemy, playerEntry, damage) {
   if (enemy.state !== ENEMY_STATE.ATTACK) return false;
   if (!enemy.stateData.lungeComplete) return true;
@@ -175,6 +174,8 @@ function beginMushroomLungeThenAttack(
     });
   });
 }
+
+// ── 主 update 迴圈 ────────────────────────────────────────────────────────
 
 export function updateMushroomMeleeAI(scene, enemy, now) {
   const sprite = enemy.sprite;

@@ -1,3 +1,4 @@
+/** 遊戲內設定視窗覆蓋層（任意場景按 ESC 開啟）。 */
 import { SettingsModal } from "../ui/SettingsModal.js";
 
 export function isSettingsOpen(scene) {

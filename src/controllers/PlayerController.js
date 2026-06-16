@@ -1,3 +1,4 @@
+/** 本機控制玩家的鍵盤與滑鼠輸入。 */
 export class PlayerController {
   constructor(scene, player) {
     this.scene = scene;

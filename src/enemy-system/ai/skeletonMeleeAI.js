@@ -1,3 +1,7 @@
+/**
+ * 骷髏近戰 AI — 對峙追擊、幀精確武器判定、有效幀傷害。
+ * 距離模型：detectRange > chaseRange > attackReach（body 間距）。
+ */
 import { horizontalBodyGap } from "../combat/collision.js";
 import { damagePlayerEntry } from "../combat/damage.js";
 import { resolveEnemyAttackDamageFromEntry } from "../../combat-stats/resolveEnemyAttack.js";
@@ -21,6 +25,8 @@ import {
 } from "./meleeCommon.js";
 
 const SKELETON_ATK_HANDLER = "_skeletonAtkFrameHandler";
+
+// ── 設定與移動 ─────────────────────────────────────────────────────────
 
 function getSkeletonMeleeConfig(cfg) {
   const melee = cfg.melee ?? {};
@@ -53,10 +59,10 @@ function returnSkeletonToIdle(enemy, sprite, idleKey) {
 }
 
 /**
- * detectRange (400) > chaseRange (280) > attackReach (~38)
- * - detectRange: acquire / start moving toward player
- * - chaseRange: abandon only after player was once within this band, then escapes
- * - attackReach: body gap where hitbox can connect (from hitbox config)
+ * 距離層級：detectRange (400) > chaseRange (280) > attackReach (~38)
+ * - detectRange：發現／開始朝玩家移動
+ * - chaseRange：玩家曾進入此範圍後才放棄，直到其逃離
+ * - attackReach：判定框可命中的 body 間距（來自 hitbox 設定）
  */
 function evaluateSkeletonRanges(enemy, detectDist, absDy, meleeCfg, verticalTol) {
   const { detectRange, chaseRange } = meleeCfg;
@@ -79,6 +85,8 @@ function evaluateSkeletonRanges(enemy, detectDist, absDy, meleeCfg, verticalTol)
 
   return { withinDetect, withinChaseBand, abandonChase };
 }
+
+// ── 追擊 ───────────────────────────────────────────────────────────────────
 
 function updateSkeletonChase(
   enemy,
@@ -110,6 +118,8 @@ function updateSkeletonChase(
     sprite.anims.play(walkKey, true);
   }
 }
+
+// ── 命中偵測與攻擊序列 ─────────────────────────────────────────
 
 function trySkeletonMeleeHit(scene, enemy, playerEntry, damage, reason) {
   if (enemy.state !== ENEMY_STATE.ATTACK) return false;
@@ -223,6 +233,8 @@ function handleSkeletonAttackHit(scene, enemy, playerEntry, damage) {
   trySkeletonMeleeHit(scene, enemy, playerEntry, damage, "attack-update");
   return true;
 }
+
+// ── 主 update 迴圈 ────────────────────────────────────────────────────────
 
 export function updateSkeletonMeleeAI(scene, enemy, now) {
   const sprite = enemy.sprite;

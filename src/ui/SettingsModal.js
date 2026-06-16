@@ -1,3 +1,4 @@
+/** 音量滑桿覆蓋層 — 音樂與音效。 */
 import { BASE_WIDTH, BASE_HEIGHT } from "../config/constants.js";
 import {
   getAudioVolumes,
@@ -148,7 +149,7 @@ export class SettingsModal {
     try {
       this.scene.input?.setTopOnly?.(false);
     } catch {
-      /* ignore */
+      /* 略過 */
     }
   }
 }

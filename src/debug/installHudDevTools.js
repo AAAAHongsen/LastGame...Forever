@@ -1,3 +1,8 @@
+/**
+ * 僅開發用 HUD／玩家數值輔助，掛在 window.hudDebug。
+ * 僅在 GameScene 執行中有效。
+ */
+
 function getGameScene() {
   if (typeof window === "undefined") return null;
   const game = window.__phaserGame;
@@ -5,7 +10,7 @@ function getGameScene() {
   return game.scene.getScene("GameScene") ?? null;
 }
 
-/** Resolve "1" or "2" → player entry in scene.players (index 0 or 1). */
+/** 將 "1" 或 "2" 解析為 scene.players 中的 entry（索引 0 或 1）。 */
 function resolvePlayerEntry(scene, playerNum) {
   const idx = Number(playerNum) - 1;
   return scene?.players?.[idx] ?? null;
@@ -38,7 +43,7 @@ function printHudDebugHelp() {
     "",
     "  hudDebug.help()",
   ].join("\n");
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console — 略過主控台警告
   console.log(msg);
   return msg;
 }
@@ -53,75 +58,73 @@ export function installHudDevTools(scene) {
       // ── HP ──────────────────────────────────────────────────────────────
       setHealth: (player, value) => {
         hud.setHealth(player, value);
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console — 略過主控台警告
         console.log(`[hudDebug] P${player} HP → ${value}`);
       },
       setMaxHp: (player, max) => {
         hud.setHealthMax(player, max);
-        // Also update current HP proportionally (clamp to new max)
         const roleKey = player === 2 || player === "2" ? "p2" : "p1";
         const cur = Math.min(Number(hud.health?.[roleKey] ?? 0), max);
         hud.setHealth(player, cur);
-        // Update entry combat max
         const entry = resolvePlayerEntry(scene, player);
         if (entry) {
           if (!entry.combat) entry.combat = {};
           entry.combat._waveMaxHp = max;
         }
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console — 略過主控台警告
         console.log(`[hudDebug] P${player} maxHP → ${max}, curHP → ${cur}`);
       },
-      // Legacy alias
       setHealthMax: (player, max) => debug.setMaxHp(player, max),
 
-      // ── Energy ──────────────────────────────────────────────────────────
+      // ── 能量 ──────────────────────────────────────────────────────────
       setEnergy: (value) => hud.setEnergy(value),
       setEnergyMax: (max) => hud.setEnergyMax(max),
       setOrbs: (player, count) => hud.setOrbs(player, count),
 
-      // ── Attack ──────────────────────────────────────────────────────────
+      // ── 攻擊 ──────────────────────────────────────────────────────────
       setAttack: (player, value) => {
         const entry = resolvePlayerEntry(scene, player);
         if (!entry) {
-          // eslint-disable-next-line no-console
+          // eslint-disable-next-line no-console — 略過主控台警告
           console.warn(`[hudDebug] 找不到 Player ${player} entry`);
           return;
         }
         if (!entry.combat) entry.combat = {};
         entry.combat._waveAttack = Number(value);
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console — 略過主控台警告
         console.log(`[hudDebug] P${player}(${entry.type}) 攻擊力 → ${value}`);
       },
       getAttack: (player) => {
         const entry = resolvePlayerEntry(scene, player);
         if (!entry) return null;
         const v = entry.combat?._waveAttack ?? "(base)";
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console — 略過主控台警告
         console.log(`[hudDebug] P${player}(${entry.type}) 攻擊力 = ${v}`);
         return v;
       },
 
-      // ── Quick wave preset ───────────────────────────────────────────────
+      // ── 波次預設 ────────────────────────────────────────────────────
       applyWaveStats: (waveNum) => {
         const wm = scene.waveManager;
         if (!wm) {
-          // eslint-disable-next-line no-console
+          // eslint-disable-next-line no-console — 略過主控台警告
           console.warn("[hudDebug] waveManager 不存在，請先進入 GameScene");
           return;
         }
         wm._applyPlayerStats(wm._getWaveCfg(waveNum), waveNum);
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console — 略過主控台警告
         console.log(`[hudDebug] 套用 wave ${waveNum} 玩家數值`);
       },
 
+      // ── 僅測試房 ──────────────────────────────────────────────────
       showWin: () => {
         if (!scene.isTestRoom) {
-          // eslint-disable-next-line no-console
+          // eslint-disable-next-line no-console — 略過主控台警告
           console.warn("[hudDebug] showWin() 僅限測試房間 (room 00001)");
           return;
         }
         scene.showWinScreen?.();
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console — 略過主控台警告
         console.log("[hudDebug] 顯示 Win 畫面");
       },
 
@@ -140,7 +143,7 @@ export function installHudDevTools(scene) {
     }
   });
 
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console — 略過主控台警告
   console.log(
     "%c[HUD]%c 已載入 — 輸入 hudDebug.help() 查看所有指令",
     "color:#7fb8e8;font-weight:bold",

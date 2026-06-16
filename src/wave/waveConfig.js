@@ -1,8 +1,8 @@
 /**
- * Complete per-wave definitions.
- * players: { soldier, mage } — hp / attack for each class.
- * enemies: [{ type, count, hp, damage }]
- * bossThresholds: [{ bossType, hpBelow, spawns:[{type,count}], once:true }]
+ * 各波完整定義。
+ * players: { soldier, mage } — 各職業 hp／attack。
+ * enemies: [{ type, count, hp, damage }] — 敵人清單
+ * bossThresholds: [{ bossType, hpBelow, spawns:[{type,count}], once:true }] — Boss 召喚門檻
  */
 export const WAVE_CONFIG = [
   {
@@ -61,11 +61,11 @@ export const WAVE_CONFIG = [
       soldier: { hp: 180, attack: 15 },
       mage:    { hp: 150, attack: 20 },
     },
-    // Wave 4 special rules
+    // 第 4 波特殊規則
     specialRules: {
-      warriorNoCost:         true,   // Warrior attacks cost no energy
-      warriorSkillInvincible: true,  // During warrior ULT, both players take no damage
-      mageHealBonus:         0.30,   // Mage healing restores 30% of max HP
+      warriorNoCost:         true,   // 戰士攻擊不耗能量
+      warriorSkillInvincible: true,  // 戰士大招期間雙方無敵
+      mageHealBonus:         0.30,   // 法師治療恢復 30% 最大 HP
     },
     enemies: [
       { type: "bat",      count: 5, hp: 30, damage: 20 },
@@ -81,11 +81,11 @@ export const WAVE_CONFIG = [
       soldier: { hp: 230, attack: 20 },
       mage:    { hp: 200, attack: 25 },
     },
-    // Wave 5 inherits Wave 4 special rules.
+    // 第 5 波沿用第 4 波特殊規則。
     specialRules: {
-      warriorNoCost:         true,   // Warrior attacks cost no energy
-      warriorSkillInvincible: true,  // During warrior ULT, both players take no damage
-      mageHealBonus:         0.30,   // Mage healing restores 30% of max HP
+      warriorNoCost:         true,   // 戰士攻擊不耗能量
+      warriorSkillInvincible: true,  // 戰士大招期間雙方無敵
+      mageHealBonus:         0.30,   // 法師治療恢復 30% 最大 HP
     },
     enemies: [
       { type: "groundBoss", count: 1, hp: 500, damage: 40 },
@@ -120,7 +120,7 @@ export const WAVE_CONFIG = [
 
 export const TOTAL_WAVES = WAVE_CONFIG.length;
 
-/** @returns {object|null} */
+/** @returns {object|null} 波次設定或 null */
 export function getWaveConfig(waveNumber) {
   return WAVE_CONFIG.find((w) => w.wave === waveNumber) ?? null;
 }

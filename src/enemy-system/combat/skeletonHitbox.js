@@ -1,11 +1,11 @@
 import { getArcadeBodyRect, horizontalBodyGap } from "./collision.js";
 
 /**
- * Forward weapon swipe hitbox anchored to skeleton physics body (not full sprite frame).
- * @param {Phaser.Physics.Arcade.Sprite} sprite
- * @param {number} facingDir -1 left, +1 right
- * @param {object} cfg
- * @returns {Phaser.Geom.Rectangle | null}
+ * 向前武器揮砍判定框錨定在骷髏物理 body（非完整 sprite 幀）。
+ * @param {Phaser.Physics.Arcade.Sprite} sprite 物理 sprite
+ * @param {number} facingDir -1 左，+1 右
+ * @param {object} cfg 判定框設定
+ * @returns {Phaser.Geom.Rectangle | null} 武器判定矩形或 null
  */
 export function getSkeletonAttackHitbox(sprite, facingDir, cfg = {}) {
   const body = getArcadeBodyRect(sprite);
@@ -23,7 +23,7 @@ export function getSkeletonAttackHitbox(sprite, facingDir, cfg = {}) {
   return new Phaser.Geom.Rectangle(cx, cy, w, h);
 }
 
-/** Max body gap at which a forward hitbox could connect (not detect/chase range). */
+/** 向前判定框可命中的最大 body 間距（非偵測／追擊範圍）。 */
 export function resolveSkeletonAttackReach(meleeCfg = {}) {
   const hitbox = meleeCfg.hitbox ?? {};
   const width = hitbox.width ?? 32;
@@ -32,7 +32,7 @@ export function resolveSkeletonAttackReach(meleeCfg = {}) {
   return width + forwardPad + slack;
 }
 
-/** Horizontal body gap where skeleton holds position before swinging. */
+/** 骷髏揮砍前原地保持的水平 body 間距。 */
 export function isSkeletonAtStandoff(sprite, playerSprite, meleeCfg = {}) {
   const gap = horizontalBodyGap(sprite, playerSprite);
   const standoff = meleeCfg.standoffPx ?? 20;
@@ -40,7 +40,7 @@ export function isSkeletonAtStandoff(sprite, playerSprite, meleeCfg = {}) {
   return gap <= standoff + tol;
 }
 
-/** True when facing player and held at standoff distance (body gap, not origin). */
+/** 面向玩家且保持對峙距離（body 間距，非原點）時為 true。 */
 export function isSkeletonInAttackRange(enemy, playerSprite, meleeCfg) {
   const sprite = enemy?.sprite;
   if (!sprite || !playerSprite) return false;
@@ -53,7 +53,7 @@ export function isSkeletonInAttackRange(enemy, playerSprite, meleeCfg) {
   return isSkeletonAtStandoff(sprite, playerSprite, meleeCfg);
 }
 
-/** Skeleton weapon hitbox vs player physics hurtbox. */
+/** 骷髏武器判定框 vs 玩家物理受擊框。 */
 export function skeletonHitboxHitsPlayer(sprite, facingDir, playerSprite, hitboxCfg) {
   const hit = getSkeletonAttackHitbox(sprite, facingDir, hitboxCfg);
   const hurt = getArcadeBodyRect(playerSprite);
